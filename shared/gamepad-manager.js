@@ -10,6 +10,7 @@ import {
   TRIGGER_LEFT,
   TRIGGER_RIGHT,
   STICK_LEFT,
+  STICK_RIGHT,
   LAYOUT_CHANGE,
   AVAILABILITY,
 } from './button-mapping.js';
@@ -23,6 +24,9 @@ const RIGHT_STICK_AXES = [2, 3];
 
 // Arrow codes whose held state synthesizes a left-stick vector.
 const KEYBOARD_STICK_CODES = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+
+// Stick event-name → side key into `_sticks`. Used by held-state bookkeeping.
+const STICK_EVENT_TO_SIDE = { [STICK_LEFT]: 'left', [STICK_RIGHT]: 'right' };
 
 /**
  * Centralized, layout-agnostic gamepad input engine.
@@ -50,6 +54,15 @@ class GamepadManager {
 
     // Held Arrow keys used to synthesize `gamepad-stick-left` events.
     this._heldKeys = new Set();
+
+    // Live "currently held" snapshot for `getInputState()`. Buttons stores the
+    // canonical event-name constants; triggers/sticks carry analog values.
+    this._held = new Set();
+    this._triggers = { left: 0, right: 0 };
+    this._sticks = {
+      left: { x: 0, y: 0 },
+      right: { x: 0, y: 0 },
+    };
 
     this.rafId = null;
     this.resumed = false;
@@ -116,6 +129,24 @@ class GamepadManager {
   }
 
   /**
+   * Live snapshot of currently-held inputs for overlays/queries. Additive —
+   * does not affect event dispatch. The returned object is a defensive copy;
+   * mutating it never touches internal state.
+   * @returns {{ buttons: string[], triggers: {left:number,right:number}, sticks: {left:{x:number,y:number},right:{x:number,y:number}}, layout: string }}
+   */
+  getInputState() {
+    return {
+      buttons: Array.from(this._held),
+      triggers: { left: this._triggers.left, right: this._triggers.right },
+      sticks: {
+        left: { x: this._sticks.left.x, y: this._sticks.left.y },
+        right: { x: this._sticks.right.x, y: this._sticks.right.y },
+      },
+      layout: this.getLayout(),
+    };
+  }
+
+  /**
    * Live snapshot of the active gamepad (same source `_poll` uses), or null
    * when no pad is connected. Centralizes `navigator.getGamepads()` access.
    */
@@ -176,7 +207,16 @@ class GamepadManager {
     const pad =
       (this.activeIndex != null && pads[this.activeIndex]) ||
       pads.find((p) => p && p.connected);
-    if (!pad) return;
+    if (!pad) {
+      // No active pad → overlay must never show a stuck input.
+      this._held.clear();
+      this._triggers = { left: 0, right: 0 };
+      this._sticks = {
+        left: { x: 0, y: 0 },
+        right: { x: 0, y: 0 },
+      };
+      return;
+    }
 
     // Latch onto the first connected pad if we didn't have one yet.
     if (this.activeIndex !== pad.index) {
@@ -237,8 +277,10 @@ class GamepadManager {
       if (pressed && !wasPressed) {
         this._resumeAudioOnce();
         this._emit(evt);
+        this._held.add(evt);
       } else if (!pressed && wasPressed) {
         this._emit(`${evt}-up`);
+        this._held.delete(evt);
       }
     }
   }
@@ -246,12 +288,13 @@ class GamepadManager {
   _diffTriggers(buttons) {
     const lt = buttons[LEFT_TRIGGER_INDEX];
     const rt = buttons[RIGHT_TRIGGER_INDEX];
-    if (lt && typeof lt.value === 'number' && lt.value > this.triggerDeadzone) {
-      this._emit(TRIGGER_LEFT, { value: lt.value });
-    }
-    if (rt && typeof rt.value === 'number' && rt.value > this.triggerDeadzone) {
-      this._emit(TRIGGER_RIGHT, { value: rt.value });
-    }
+    const lv = lt && typeof lt.value === 'number' ? lt.value : 0;
+    const rv = rt && typeof rt.value === 'number' ? rt.value : 0;
+    if (lv > this.triggerDeadzone) this._emit(TRIGGER_LEFT, { value: lv });
+    if (rv > this.triggerDeadzone) this._emit(TRIGGER_RIGHT, { value: rv });
+    // Track live analog values; zero out when below deadzone (centered).
+    this._triggers.left = lv > this.triggerDeadzone ? lv : 0;
+    this._triggers.right = rv > this.triggerDeadzone ? rv : 0;
   }
 
   _diffAxes(axes) {
@@ -264,9 +307,15 @@ class GamepadManager {
     const x = Number(axes[xIdx]) || 0;
     const y = Number(axes[yIdx]) || 0;
     const mag = Math.hypot(x, y);
-    if (mag < this.deadzone) return; // radial deadzone → emit nothing
+    const side = STICK_EVENT_TO_SIDE[evt];
+    if (mag < this.deadzone) {
+      // Radial deadzone → emit nothing + reset held stick state to centered.
+      if (side) this._sticks[side] = { x: 0, y: 0 };
+      return;
+    }
     // Pass through raw -1..1. Sign convention: left = -x, up = -y per spec.
     this._emit(evt, { x, y });
+    if (side) this._sticks[side] = { x, y };
   }
 
   // --------------------------------------------------------------------------
@@ -300,6 +349,13 @@ class GamepadManager {
     if (wasActive) {
       this.activeIndex = null;
       this.prev = { buttons: [], axes: [] };
+      // Clear live held-state so the overlay does not show a stuck input.
+      this._held.clear();
+      this._triggers = { left: 0, right: 0 };
+      this._sticks = {
+        left: { x: 0, y: 0 },
+        right: { x: 0, y: 0 },
+      };
     }
   }
 
