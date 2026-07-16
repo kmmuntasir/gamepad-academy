@@ -8,7 +8,6 @@
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
 import {
-  TRIGGER_RIGHT,
   LAYOUT_CHANGE,
   AVAILABILITY,
   triggerLabel,
@@ -98,7 +97,9 @@ const balloon = {
 const stars = [];   // each: { x, y, r, collected }
 const clouds = [];  // each: { x, y, r, vyDrift }
 
-let triggerValue = 0;   // 0..1, current right-trigger pressure (burner)
+let triggerValue = 0;   // 0..1, current right-trigger pressure (burner).
+                        // Refreshed EACH FRAME from the manager (see update())
+                        // so the burner always reflects the live analog state.
 let score = 0;
 let lastTimestamp = 0;
 let rafId = null;
@@ -148,6 +149,13 @@ resetWorld();
 // ---------------------------------------------------------------------------
 
 function update(dt) {
+  // Poll the LIVE analog trigger value each frame. The manager stops emitting
+  // `gamepad-trigger-right` once RT drops below its own deadzone, so we can't
+  // rely on push events for the "released" state — reading the accessor every
+  // frame guarantees the burner turns off the instant RT is released.
+  triggerValue = gamepadManager.getRightTrigger();
+  if (triggerValue < TRIGGER_DEADZONE) triggerValue = 0;
+
   // Burner physics: trigger value → vy via the pure module.
   balloon.vy = verticalVelocity(triggerValue, {
     gravity: GRAVITY,
@@ -435,15 +443,6 @@ updateTriggerLabel();
 // Event handlers (bound so they can be removed on unload)
 // ---------------------------------------------------------------------------
 
-function onTriggerRight(event) {
-  const detail = event && event.detail ? event.detail : {};
-  const v = Number(detail.value);
-  triggerValue = Number.isFinite(v) ? clamp(v, 0, 1) : 0;
-  // When the manager stops emitting (release below deadzone), we keep the
-  // last emitted value but clamp tiny noise to zero.
-  if (triggerValue < TRIGGER_DEADZONE) triggerValue = 0;
-}
-
 function onLayoutChange() {
   updateTriggerLabel();
   syncBanner();
@@ -463,7 +462,6 @@ function onFirstGesture() {
 }
 
 const LISTENERS = [
-  [TRIGGER_RIGHT, onTriggerRight],
   [LAYOUT_CHANGE, onLayoutChange],
   [AVAILABILITY, onAvailability],
 ];
