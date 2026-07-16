@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gamepad Academy — Tests</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 1.5rem;
+        line-height: 1.5;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      .summary {
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        color: #fff;
+        margin-bottom: 1rem;
+      }
+      .summary.green { background: #1a8a3a; }
+      .summary.red { background: #b3261e; }
+      .summary h1 { margin: 0; font-size: 1.25rem; }
+      .summary .total { margin: 0.25rem 0 0; opacity: 0.9; font-size: 0.9rem; }
+      ul.tests {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .test {
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 0.35rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.9rem;
+      }
+      .test.pass { background: rgba(26, 138, 58, 0.12); }
+      .test.fail { background: rgba(179, 38, 30, 0.12); }
+      .test .status {
+        display: inline-block;
+        min-width: 3rem;
+        font-weight: 700;
+      }
+      .test.fail .status { color: #b3261e; }
+      .test.pass .status { color: #1a8a3a; }
+      a.home {
+        display: inline-block;
+        margin-top: 1.5rem;
+        color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="results"></main>
+    <a class="home" href="/index.html">← Back to Home</a>
+
+    <script type="module" src="./harness.js"></script>
+
+    <!-- append test scripts here -->
+
+    <script type="module">
+      // Render the report once all test modules above have executed.
+      // Module scripts run in order, deferred, so this runs last.
+      window.__runTests()
+    </script>
+  </body>
+</html>
