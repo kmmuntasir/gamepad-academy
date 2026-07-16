@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>City-Pop DJ — Gamepad Academy</title>
+    <link rel="stylesheet" href="../../shared/styles.css" />
+    <style>
+      /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      .dj-stage {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-5);
+        align-items: center;
+      }
+      .dj-instructions {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: var(--fs-md);
+        max-width: 52ch;
+      }
+      .dj-instructions strong {
+        color: var(--c-primary);
+      }
+      #status {
+        min-height: 1.5em;
+        text-align: center;
+        font-size: var(--fs-lg);
+        font-weight: 700;
+        color: var(--c-primary);
+      }
+      #pad-host {
+        /* Enlarge the 80x80 face-glyph into a big, readable mixing-desk diamond. */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: var(--space-4);
+      }
+      #pad-host .face-glyph {
+        width: min(62vw, 380px);
+        height: min(62vw, 380px);
+      }
+      #pad-host .face-glyph__pad {
+        width: 30%;
+        height: 30%;
+        font-size: clamp(1.1rem, 3.4vw, 1.8rem);
+        border-width: 4px;
+        cursor: pointer;
+        flex-direction: column;
+        gap: 2px;
+      }
+      /* Track name badge rendered inside each pad. */
+      #pad-host .face-glyph__pad::after {
+        content: attr(data-track);
+        display: block;
+        font-size: clamp(0.6rem, 1.8vw, 0.85rem);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        opacity: 0.85;
+      }
+      /* Lit (held) pad — track is playing. */
+      #pad-host .face-glyph__pad.dj-pad--lit {
+        background-color: var(--c-accent);
+        border-color: var(--c-accent);
+        color: #062b29;
+        box-shadow: 0 0 24px 6px rgba(78, 205, 196, 0.6);
+      }
+      /* Full-mix celebration banner. */
+      .full-mix {
+        padding: var(--space-2) var(--space-4);
+        border-radius: var(--radius-pill);
+        background-color: var(--c-surface);
+        color: var(--c-muted);
+        font-weight: 700;
+        font-size: var(--fs-sm);
+        border: 2px solid transparent;
+        transition:
+          background-color var(--transition-base),
+          color var(--transition-base),
+          border-color var(--transition-base),
+          box-shadow var(--transition-base);
+      }
+      .full-mix.is-full {
+        background-color: var(--c-primary);
+        color: #1a1200;
+        border-color: var(--c-primary);
+        box-shadow: 0 0 18px 4px rgba(255, 210, 63, 0.5);
+      }
+      .dj-chord-hint {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: var(--fs-sm);
+      }
+      .dj-chord-hint strong {
+        color: var(--c-accent);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #pad-host .face-glyph__pad {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="back-home-row">
+      <a class="back-home" href="../../index.html">← Back to Home</a>
+    </div>
+
+    <main class="page dj-stage">
+      <h1 class="page__title">City-Pop DJ</h1>
+
+      <div class="gamepad-banner" role="status" aria-live="polite">
+        <span class="gamepad-banner__dot" aria-hidden="true"></span>
+        <span id="banner-text">No controller — use the keyboard (WASD = face buttons).</span>
+      </div>
+
+      <p class="dj-instructions">
+        <strong>Hold</strong> the face buttons to keep each track playing.
+        Hold them all at once for the <strong>full mix</strong>!
+        Release a button to mute that track. Nothing ever stops the music.
+      </p>
+
+      <div id="status" role="status" aria-live="polite">Hold a face button to start a track.</div>
+
+      <div id="pad-host" aria-label="Mixing-desk pads"></div>
+
+      <div class="full-mix" id="full-mix">Hold all four for the full mix!</div>
+
+      <p class="dj-chord-hint">
+        Bottom = <strong>bass</strong> · Right = <strong>drums</strong> ·
+        Left = <strong>melody</strong> · Top = <strong>vocals</strong>
+      </p>
+    </main>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
