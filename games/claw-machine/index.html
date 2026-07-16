@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Claw Machine — Gamepad Academy</title>
+    <link rel="stylesheet" href="../../shared/styles.css" />
+    <style>
+      /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      .claw-stage {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        align-items: stretch;
+      }
+      .claw-instructions {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: var(--fs-md);
+        max-width: 52ch;
+        margin-inline: auto;
+      }
+      .claw-instructions strong {
+        color: var(--c-primary);
+      }
+      .prompt-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+      }
+      .prompt-row__label {
+        font-size: var(--fs-md);
+        color: var(--c-text);
+      }
+      .claw-canvas-wrap {
+        position: relative;
+        width: 100%;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-md);
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        background-color: var(--c-surface);
+      }
+      #claw-canvas {
+        width: 100%;
+        height: auto;
+        display: block;
+        touch-action: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .claw-canvas-wrap {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="back-home-row">
+      <a class="back-home" href="../../index.html">← Back to Home</a>
+    </div>
+
+    <main class="page claw-stage">
+      <h1 class="page__title">Claw Machine</h1>
+
+      <div class="gamepad-banner" role="status" aria-live="polite">
+        <span class="gamepad-banner__dot" aria-hidden="true"></span>
+        <span id="banner-text">No controller — use the keyboard (Arrows = D-Pad, S = Drop).</span>
+      </div>
+
+      <p class="claw-instructions">
+        Steer the claw with the <strong>D-Pad</strong> — one square per press.
+        Line up over a toy, then press the <strong>Bottom face button</strong>
+        to drop the claw and grab it. Thumbsticks are turned off on purpose!
+      </p>
+
+      <div class="prompt-row">
+        <span class="prompt-row__label">Drop claw (Bottom button):</span>
+        <span id="prompt-glyph" aria-hidden="true"></span>
+      </div>
+
+      <div class="claw-canvas-wrap">
+        <canvas id="claw-canvas" aria-label="Claw machine play area"></canvas>
+      </div>
+    </main>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
