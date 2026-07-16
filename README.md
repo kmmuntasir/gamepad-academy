@@ -2,6 +2,10 @@
 
 A collection of zero-dependency, zero-stress HTML5 mini-games that help kids build gamepad muscle memory and dual-stick coordination — no fail states, no timers, just playful learning.
 
+## Live
+
+Play now at **<https://gamepad-academy.com/>** — the MVP is deployed there.
+
 ## Run
 
 **Don't open `index.html` directly (double-click).** The game code uses ES module `import`s, which browsers block on the `file://` origin — opening the file directly means inputs (gamepad **and** keyboard) silently do nothing. Serve it over HTTP instead:
@@ -33,7 +37,7 @@ You'll see a green/red in-browser report. No npm, no runner install — the hand
 ## Structure
 
 ```
-index.html                # Homepage with cards linking to each game
+index.html                # Retro homepage with game cards + Settings menu
 games/                    # 11 self-contained mini-games (one folder each)
   animal-spawner/  bumper-lane-runner/  butterfly-catcher/
   city-pop-dj/     claw-machine/         color-match-feeder/
