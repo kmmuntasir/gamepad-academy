@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gamepad Academy</title>
+    <link rel="stylesheet" href="shared/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="page__title">
+        <img src="assets/images/logo.svg" alt="Gamepad Academy" />
+        <p>Learn your gamepad, one game at a time.</p>
+      </header>
+
+      <div
+        class="gamepad-banner"
+        id="gamepad-banner"
+        role="status"
+        aria-live="polite"
+      >
+        <span class="gamepad-banner__dot" aria-hidden="true"></span>
+        <span id="gamepad-banner-text">Connect a gamepad and press any button.</span>
+      </div>
+
+      <nav class="card-grid" aria-label="Games">
+        <a class="card" href="games/animal-spawner/index.html">
+          <span class="card__title" aria-hidden="true">🐾 Animal Spawner</span>
+          <span class="card__desc">Teaches: Face buttons + D-Pad</span>
+        </a>
+        <a class="card" href="games/bumper-lane-runner/index.html">
+          <span class="card__title" aria-hidden="true">🚗 Bumper Lane Runner</span>
+          <span class="card__desc">Teaches: Bumpers (L1/R1)</span>
+        </a>
+        <a class="card" href="games/simon-says/index.html">
+          <span class="card__title" aria-hidden="true">🎵 Simon Says</span>
+          <span class="card__desc">Teaches: Face buttons + memory</span>
+        </a>
+        <a class="card" href="games/claw-machine/index.html">
+          <span class="card__title" aria-hidden="true">🦾 Claw Machine</span>
+          <span class="card__desc">Teaches: D-Pad grid navigation</span>
+        </a>
+        <a class="card" href="games/color-match-feeder/index.html">
+          <span class="card__title" aria-hidden="true">🍪 Color-Match Feeder</span>
+          <span class="card__desc">Teaches: Face buttons + timing</span>
+        </a>
+        <a class="card" href="games/stargazer/index.html">
+          <span class="card__title" aria-hidden="true">✨ Stargazer</span>
+          <span class="card__desc">Teaches: Left stick + face buttons</span>
+        </a>
+        <a class="card" href="games/butterfly-catcher/index.html">
+          <span class="card__title" aria-hidden="true">🦋 Butterfly Catcher</span>
+          <span class="card__desc">Teaches: Analog stick tilt</span>
+        </a>
+        <a class="card" href="games/hot-air-balloon/index.html">
+          <span class="card__title" aria-hidden="true">🎈 Hot Air Balloon</span>
+          <span class="card__desc">Teaches: Analog trigger pressure</span>
+        </a>
+        <a class="card" href="games/submarine-sonar/index.html">
+          <span class="card__title" aria-hidden="true">🚢 Submarine Sonar</span>
+          <span class="card__desc">Teaches: Stick-clicks (L3/R3)</span>
+        </a>
+        <a class="card" href="games/wildlife-photographer/index.html">
+          <span class="card__title" aria-hidden="true">📷 Wildlife Photographer</span>
+          <span class="card__desc">Teaches: Right stick + trigger</span>
+        </a>
+        <a class="card" href="games/city-pop-dj/index.html">
+          <span class="card__title" aria-hidden="true">🎧 City-Pop DJ</span>
+          <span class="card__desc">Teaches: Holding &amp; chording</span>
+        </a>
+      </nav>
+    </main>
+
+    <script type="module">
+      import { gamepadManager } from './shared/gamepad-manager.js';
+
+      const banner = document.getElementById('gamepad-banner');
+      const bannerText = document.getElementById('gamepad-banner-text');
+      const DEFAULT_TEXT = 'Connect a gamepad and press any button.';
+
+      const LAYOUT_LABELS = {
+        xbox: 'Xbox',
+        playstation: 'PlayStation',
+        switch: 'Switch',
+      };
+
+      function labelForLayout(layout) {
+        return LAYOUT_LABELS[layout] || 'Xbox';
+      }
+
+      window.addEventListener('gamepad-availability', (event) => {
+        const { connected, layout } = event.detail || {};
+        if (connected) {
+          banner.classList.add('is-connected');
+          bannerText.textContent = `${labelForLayout(layout)} controller connected`;
+        } else {
+          banner.classList.remove('is-connected');
+          bannerText.textContent = DEFAULT_TEXT;
+        }
+      });
+    </script>
+  </body>
+</html>
