@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Color-Match Feeder — Gamepad Academy</title>
+    <link rel="stylesheet" href="../../shared/styles.css" />
+    <style>
+      /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      .feeder-stage {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        align-items: stretch;
+      }
+      .feeder-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        gap: var(--space-4);
+        flex-wrap: wrap;
+      }
+      .feeder-header__yum {
+        font-size: var(--fs-lg);
+        font-weight: 700;
+        color: var(--c-accent);
+      }
+      .feeder-instructions {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: var(--fs-md);
+        max-width: 52ch;
+      }
+      .feeder-instructions strong {
+        color: var(--c-primary);
+      }
+      #stage {
+        width: 100%;
+        height: min(64vh, 560px);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        touch-action: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="back-home-row">
+      <a class="back-home" href="../../index.html">← Back to Home</a>
+    </div>
+
+    <main class="page feeder-stage">
+      <div class="feeder-header">
+        <h1 class="page__title">Color-Match Feeder</h1>
+        <span class="feeder-header__yum">Yum! <span id="yum-count">0</span></span>
+      </div>
+
+      <div class="gamepad-banner" role="status" aria-live="polite">
+        <span class="gamepad-banner__dot" aria-hidden="true"></span>
+        <span id="banner-text">No controller — use the keyboard (WASD = face buttons).</span>
+      </div>
+
+      <p class="feeder-instructions">
+        Cookies drift toward the monster. Each one shows a
+        <strong>face-button prompt</strong> — press the matching button when
+        the cookie is inside the dashed ring to feed the monster. Misses just
+        float away; there's no game over.
+      </p>
+
+      <canvas id="stage" aria-label="Color-Match Feeder play area"></canvas>
+    </main>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
