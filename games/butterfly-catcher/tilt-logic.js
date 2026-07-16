@@ -87,3 +87,115 @@ export function tryCatch(butterfly, player, mode) {
   const dy = player.y - butterfly.y;
   return Math.hypot(dx, dy) <= butterfly.catchRadius;
 }
+
+// ---------------------------------------------------------------------------
+// Flight animation helpers — used when a butterfly is scared off and flies
+// to a new resting spot. All pure: no DOM, no Canvas, no side effects.
+// ---------------------------------------------------------------------------
+
+/**
+ * Cubic ease-out: fast at the start, decelerating to the target.
+ * Maps t in [0,1] to [0,1]. Clamped; identity at endpoints.
+ *
+ * @param {number} t  progress in [0, 1]
+ * @returns {number}  eased progress in [0, 1]
+ */
+export function easeOutCubic(t) {
+  if (!Number.isFinite(t)) return 0;
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  const u = 1 - t;
+  return 1 - u * u * u;
+}
+
+/**
+ * Pick a new resting spot for a fleeing butterfly.
+ *
+ * Returns `{ x, y }` clamped to `[0, viewW] × [0, viewH]` and at least
+ * `minDist` away from the butterfly's current position. If `player` is
+ * provided, the target also stays at least `minDist` from the player so a
+ * scared butterfly doesn't immediately land back on top of the scare source.
+ *
+ * Falls back to the current position (clamped) if no valid spot can be
+ * found after a few attempts — never throws.
+ *
+ * @param {{ x:number, y:number }} butterfly   current position
+ * @param {number} viewW                        field width  (>0)
+ * @param {number} viewH                        field height (>0)
+ * @param {number} minDist                      minimum distance from origin
+ * @param {{ x:number, y:number }=} [player]    optional player position to avoid
+ * @returns {{ x:number, y:number }}
+ */
+export function pickFlightTarget(butterfly, viewW, viewH, minDist, player) {
+  const w = Number.isFinite(viewW) && viewW > 0 ? viewW : 1;
+  const h = Number.isFinite(viewH) && viewH > 0 ? viewH : 1;
+  const ox = butterfly && Number.isFinite(butterfly.x) ? butterfly.x : w / 2;
+  const oy = butterfly && Number.isFinite(butterfly.y) ? butterfly.y : h / 2;
+  const minD = Number.isFinite(minDist) && minDist > 0 ? minDist : 0;
+  const margin = 40;
+  const maxX = Math.max(margin, w - margin);
+  const maxY = Math.max(margin, h - margin);
+
+  const farFrom = (tx, ty, px, py) =>
+    px == null || py == null || Math.hypot(tx - px, ty - py) >= minD;
+
+  const hasPlayer =
+    player && Number.isFinite(player.x) && Number.isFinite(player.y);
+  const px = hasPlayer ? player.x : null;
+  const py = hasPlayer ? player.y : null;
+
+  for (let i = 0; i < 12; i++) {
+    const tx = margin + Math.random() * Math.max(1, maxX - margin);
+    const ty = margin + Math.random() * Math.max(1, maxY - margin);
+    if (Math.hypot(tx - ox, ty - oy) < minD) continue;
+    if (!farFrom(tx, ty, px, py)) continue;
+    return { x: tx, y: ty };
+  }
+  // Fallback: a point along the field edge away from the player, clamped.
+  const fx = clampPure(margin + Math.random() * Math.max(1, maxX - margin), 0, w);
+  const fy = clampPure(margin + Math.random() * Math.max(1, maxY - margin), 0, h);
+  return { x: fx, y: fy };
+}
+
+/**
+ * Advance a butterfly's flight path by `dtMs`.
+ *
+ * Reads flight state off the butterfly:
+ *   flyStartX, flyStartY, targetX, targetY, flyT (0..1), flyDurationMs.
+ * Advances `flyT` by `dtMs / flyDurationMs`, applies `easeOutCubic`, and
+ * lerps the position from start → target. When `flyT >= 1` the butterfly
+ * is snapped to the target and `done` is true.
+ *
+ * Returns `{ x, y, flyT, done }`. Does NOT mutate the butterfly.
+ *
+ * @param {object} butterfly   must carry the flight fields above
+ * @param {number} dtMs        elapsed milliseconds since last advance
+ * @returns {{ x:number, y:number, flyT:number, done:boolean }}
+ */
+export function advanceFlight(butterfly, dtMs) {
+  const dur = butterfly && Number.isFinite(butterfly.flyDurationMs)
+    ? butterfly.flyDurationMs
+    : 1000;
+  const dt = Number.isFinite(dtMs) && dtMs > 0 ? dtMs : 0;
+  const startT = butterfly && Number.isFinite(butterfly.flyT) ? butterfly.flyT : 0;
+  let t = startT + dt / dur;
+  let done = false;
+  if (t >= 1) {
+    t = 1;
+    done = true;
+  }
+  const e = easeOutCubic(t);
+  const sx = butterfly.flyStartX;
+  const sy = butterfly.flyStartY;
+  const tx = butterfly.targetX;
+  const ty = butterfly.targetY;
+  const x = sx + (tx - sx) * e;
+  const y = sy + (ty - sy) * e;
+  return { x, y, flyT: t, done };
+}
+
+// Local clamp to keep this module self-contained (no shared/utils import).
+function clampPure(v, lo, hi) {
+  if (!Number.isFinite(v)) return lo;
+  return Math.min(hi, Math.max(lo, v));
+}

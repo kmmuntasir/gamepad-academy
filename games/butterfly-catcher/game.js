@@ -17,6 +17,10 @@ import {
   movementMode,
   butterflyFlees,
   tryCatch,
+  stickMagnitude,
+  easeOutCubic,
+  pickFlightTarget,
+  advanceFlight,
 } from './tilt-logic.js';
 
 // ---------------------------------------------------------------------------
@@ -37,14 +41,23 @@ const REST_RADIUS = 14; // resting butterfly idle wander
 
 // Butterfly counts and respawn.
 const BUTTERFLY_TARGET = 5; // minimum kept on screen
-const FLEE_DURATION_MS = 1100; // how long a fleeing butterfly stays "gone"
-const RESPAWN_DELAY_MS = 700; // delay before a new butterfly appears
+const FLIGHT_DURATION_MIN_MS = 800; // min time to fly to a new spot
+const FLIGHT_DURATION_MAX_MS = 1200; // max time to fly to a new spot
+const FLIGHT_MIN_DIST = 180; // a scared butterfly travels at least this far
 
 // Player visual.
 const PLAYER_RADIUS = 22;
 
-// Butterflies drawn as colored emoji for a child-friendly look.
-const BUTTERFLY_EMOJIS = ['🦋', '🦋', '🦋', '🌸', '🐝'];
+// Vibrant wing palettes (bright, child-friendly, fully opaque).
+const BUTTERFLY_PALETTES = [
+  { wing: '#ff5da2', accent: '#ffd1e5', body: '#3a1d2e' }, // hot pink
+  { wing: '#ffd23f', accent: '#fff2b3', body: '#3a2a00' }, // sunny yellow
+  { wing: '#4ecdc4', accent: '#bdf2ec', body: '#0c2e2a' }, // turquoise
+  { wing: '#7c5cff', accent: '#cfc3ff', body: '#1d1540' }, // royal purple
+  { wing: '#ff7b3b', accent: '#ffd2b0', body: '#3a1600' }, // tangerine
+  { wing: '#5cff7c', accent: '#c4ffcfc', body: '#0d3a18' }, // lime
+  { wing: '#ff3b6b', accent: '#ffc1cf', body: '#3a0010' }, // crimson
+];
 
 // Stick coupling: we keep last-seen stick vector so movement persists between
 // events (the manager emits continuously while tilted, and stops — i.e. emits
@@ -106,8 +119,10 @@ const player = {
   stepPhase: 0, // for walk/run bob
 };
 
-// Butterflies: { id, x, y, color, emoji, state: 'rest'|'flee', fleeUntil, bob }
-/** @type {Array<{id:number,x:number,y:number,emoji:string,state:'rest'|'flee',fleeUntil:number,bob:number}>} */
+// Butterflies: each entity carries position, color palette, and a state of
+// 'rest' (idle, can be scared/caught) or 'flying' (mid-flight to a new spot).
+// Flight fields are populated on scare: flyStart*, target*, flyT, flyDurationMs.
+/** @type {Array<object>} */
 const butterflies = [];
 let nextButterflyId = 1;
 
@@ -132,31 +147,32 @@ function randomRestPosition() {
 
 function spawnButterfly() {
   const pos = randomRestPosition();
+  const palette = BUTTERFLY_PALETTES[Math.floor(Math.random() * BUTTERFLY_PALETTES.length)];
   butterflies.push({
     id: nextButterflyId++,
     x: pos.x,
     y: pos.y,
-    emoji: '🦋',
+    palette,
     state: 'rest',
-    fleeUntil: 0,
     bob: Math.random() * Math.PI * 2,
+    flapPhase: Math.random() * Math.PI * 2,
+    // Flight state (populated when scared):
+    flyStartX: 0,
+    flyStartY: 0,
+    targetX: pos.x,
+    targetY: pos.y,
+    flyT: 1, // 1 = at rest at target
+    flyDurationMs: 1000,
   });
 }
 
-function ensureButterflies(now) {
-  // Count only resting (present) butterflies toward the on-screen minimum.
+function ensureButterflies() {
+  // Count only resting butterflies toward the on-screen minimum. Flying
+  // butterflies are still on-screen and resettling — they don't need a
+  // replacement. Reap only on a real catch (handled inline in update()).
   const present = butterflies.filter((b) => b.state === 'rest').length;
   if (present < BUTTERFLY_TARGET) {
     spawnButterfly();
-  }
-  // Reap butterflies whose flee timer expired — respawn a fresh one shortly.
-  for (let i = butterflies.length - 1; i >= 0; i--) {
-    const b = butterflies[i];
-    if (b.state === 'flee' && now >= b.fleeUntil) {
-      butterflies.splice(i, 1);
-      // Schedule a replacement (non-blocking; never a penalty).
-      setTimeout(spawnButterfly, RESPAWN_DELAY_MS);
-    }
   }
 }
 
@@ -165,8 +181,9 @@ function ensureButterflies(now) {
 // ---------------------------------------------------------------------------
 
 function update(dt, now) {
-  // Magnitude → mode (pure logic module).
-  const mag = Math.min(1, Math.hypot(stickX, stickY));
+  // Magnitude → mode (pure logic module). Use the shared stickMagnitude so the
+  // engine never duplicates magnitude math (was inline Math.hypot before).
+  const mag = stickMagnitude(stickX, stickY);
   player.mode = movementMode(mag);
 
   // If the stick hasn't reported in a while, treat it as released (still).
@@ -215,36 +232,60 @@ function update(dt, now) {
   }
 
   // Resolve butterfly interactions.
+  const dtMs = dt * 1000;
   for (const b of butterflies) {
-    if (b.state !== 'rest') continue;
-    // Decorate radii so the pure functions can read them.
-    const withRadii = { x: b.x, y: b.y, fleeRadius: FLEE_RADIUS, catchRadius: CATCH_RADIUS };
+    if (b.state === 'rest') {
+      // Decorate radii so the pure functions can read them.
+      const withRadii = { x: b.x, y: b.y, fleeRadius: FLEE_RADIUS, catchRadius: CATCH_RADIUS };
 
-    if (butterflyFlees(withRadii, player, player.mode)) {
-      b.state = 'flee';
-      b.fleeUntil = now + FLEE_DURATION_MS;
-      playTone({ freq: FLEE_FREQ, duration: 0.12, type: 'triangle', gain: 0.08 });
-      continue;
-    }
-    if (tryCatch(withRadii, player, player.mode)) {
-      b.state = 'flee'; // remove from play; reaped + respawned below
-      b.fleeUntil = now; // reap immediately
-      catchCount += 1;
-      if (catchCountEl) catchCountEl.textContent = String(catchCount);
-      playTone({ freq: CATCH_FREQ, duration: CATCH_DURATION, type: 'sine', gain: 0.18 });
-      // Sparkle on top of the catch.
-      setTimeout(() => {
-        playTone({ freq: CATCH_FREQ * 1.5, duration: 0.08, type: 'sine', gain: 0.1 });
-      }, 90);
+      if (butterflyFlees(withRadii, player, player.mode)) {
+        // Scared: fly to a new spot away from the player, then resettle.
+        const target = pickFlightTarget(b, viewW, viewH, FLIGHT_MIN_DIST, player);
+        b.state = 'flying';
+        b.flyStartX = b.x;
+        b.flyStartY = b.y;
+        b.targetX = target.x;
+        b.targetY = target.y;
+        b.flyT = 0;
+        b.flyDurationMs =
+          FLIGHT_DURATION_MIN_MS +
+          Math.random() * (FLIGHT_DURATION_MAX_MS - FLIGHT_DURATION_MIN_MS);
+        playTone({ freq: FLEE_FREQ, duration: 0.12, type: 'triangle', gain: 0.08 });
+        continue;
+      }
+      if (tryCatch(withRadii, player, player.mode)) {
+        // Real catch: reap immediately, then spawn a replacement.
+        catchCount += 1;
+        if (catchCountEl) catchCountEl.textContent = String(catchCount);
+        playTone({ freq: CATCH_FREQ, duration: CATCH_DURATION, type: 'sine', gain: 0.18 });
+        setTimeout(() => {
+          playTone({ freq: CATCH_FREQ * 1.5, duration: 0.08, type: 'sine', gain: 0.1 });
+        }, 90);
+        const idx = butterflies.indexOf(b);
+        if (idx >= 0) butterflies.splice(idx, 1);
+        continue;
+      }
+    } else if (b.state === 'flying') {
+      // Advance along the eased flight path; resettle when done.
+      const step = advanceFlight(b, dtMs);
+      b.x = step.x;
+      b.y = step.y;
+      b.flyT = step.flyT;
+      if (step.done) {
+        b.x = b.targetX;
+        b.y = b.targetY;
+        b.state = 'rest';
+      }
     }
   }
 
-  // Reap + maintain minimum count.
-  ensureButterflies(now);
+  // Maintain minimum count of resting butterflies.
+  ensureButterflies();
 
-  // Idle bob for resting butterflies.
+  // Idle bob + wing flap for butterflies (faster flap while flying).
   for (const b of butterflies) {
     b.bob += dt * 3;
+    b.flapPhase += dt * (b.state === 'flying' ? 26 : 7);
   }
 
   // UI: mode badge.
@@ -281,23 +322,74 @@ function drawField() {
   }
 }
 
+// Draw a single butterfly as bright, fully-opaque canvas shapes:
+// two wing ellipses (upper + lower pair), accents, and a body.
+function drawButterfly(b, now) {
+  if (!ctx) return;
+  const palette = b.palette || BUTTERFLY_PALETTES[0];
+  const bobY = Math.sin(b.bob) * REST_RADIUS * 0.25;
+  const cx = b.x;
+  const cy = b.y + bobY;
+
+  // Wing flap: oscillates between 0.55 (folded) and 1.0 (spread).
+  const flap = 0.78 + Math.sin(b.flapPhase) * 0.22;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.globalAlpha = 1;
+
+  // Soft shadow under the butterfly so it reads against the grass.
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  ctx.beginPath();
+  ctx.ellipse(0, 14, 12, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const drawWingPair = (scale) => {
+    // Upper wings.
+    ctx.fillStyle = palette.wing;
+    ctx.beginPath();
+    ctx.ellipse(-10 * flap * scale, -6, 11 * flap, 10, -0.4, 0, Math.PI * 2);
+    ctx.ellipse(10 * flap * scale, -6, 11 * flap, 10, 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    // Lower wings (slightly smaller).
+    ctx.beginPath();
+    ctx.ellipse(-8 * flap * scale, 7, 8 * flap, 7, 0.5, 0, Math.PI * 2);
+    ctx.ellipse(8 * flap * scale, 7, 8 * flap, 7, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Bright accent dots.
+    ctx.fillStyle = palette.accent;
+    ctx.beginPath();
+    ctx.arc(-9 * flap * scale, -7, 3, 0, Math.PI * 2);
+    ctx.arc(9 * flap * scale, -7, 3, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  drawWingPair(1);
+
+  // Body (dark segmented oval down the center).
+  ctx.fillStyle = palette.body;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 2.5, 11, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Antennae.
+  ctx.strokeStyle = palette.body;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(0, -8);
+  ctx.quadraticCurveTo(-5, -14, -7, -16);
+  ctx.moveTo(0, -8);
+  ctx.quadraticCurveTo(5, -14, 7, -16);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 function drawButterflies(now) {
   if (!ctx) return;
-  ctx.save();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const size = 30;
-  ctx.font = `${size}px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
-
   for (const b of butterflies) {
-    if (b.state === 'flee') continue; // gone from view while fleeing
-    const bobY = Math.sin(b.bob) * REST_RADIUS * 0.25;
-    ctx.globalAlpha = 0.95;
-    ctx.fillText(b.emoji, b.x, b.y + bobY);
+    drawButterfly(b, now);
   }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-  void now;
 }
 
 function drawPlayer(now) {

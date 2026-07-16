@@ -6,6 +6,9 @@ import {
   movementMode,
   butterflyFlees,
   tryCatch,
+  easeOutCubic,
+  pickFlightTarget,
+  advanceFlight,
 } from '../games/butterfly-catcher/tilt-logic.js';
 
 describe('stickMagnitude', () => {
@@ -179,5 +182,145 @@ describe('tryCatch', () => {
   it('fails soft on missing inputs', () => {
     expect(tryCatch(null, { x: 0, y: 0 }, 'tiptoe')).toBe(false);
     expect(tryCatch({ x: 0, y: 0, catchRadius: 10 }, null, 'tiptoe')).toBe(false);
+  });
+});
+
+describe('easeOutCubic', () => {
+  it('easeOutCubic(0) === 0', () => {
+    expect(easeOutCubic(0)).toBe(0);
+  });
+
+  it('easeOutCubic(1) === 1', () => {
+    expect(easeOutCubic(1)).toBe(1);
+  });
+
+  it('is monotonic non-decreasing across [0,1]', () => {
+    let prev = -Infinity;
+    for (let i = 0; i <= 20; i++) {
+      const v = easeOutCubic(i / 20);
+      expect(v >= prev).toBe(true);
+      prev = v;
+    }
+  });
+
+  it('clamps below 0 to 0 and above 1 to 1', () => {
+    expect(easeOutCubic(-0.5)).toBe(0);
+    expect(easeOutCubic(1.5)).toBe(1);
+  });
+
+  it('midpoint 0.5 is between 0 and 1', () => {
+    const v = easeOutCubic(0.5);
+    expect(v > 0).toBe(true);
+    expect(v < 1).toBe(true);
+  });
+
+  it('returns 0 for non-finite input', () => {
+    expect(easeOutCubic(NaN)).toBe(0);
+  });
+});
+
+describe('pickFlightTarget', () => {
+  const viewW = 800;
+  const viewH = 600;
+  const minDist = 150;
+
+  it('returns a point inside the view bounds', () => {
+    const butterfly = { x: 100, y: 100 };
+    for (let i = 0; i < 20; i++) {
+      const t = pickFlightTarget(butterfly, viewW, viewH, minDist);
+      expect(t.x >= 0).toBe(true);
+      expect(t.x <= viewW).toBe(true);
+      expect(t.y >= 0).toBe(true);
+      expect(t.y <= viewH).toBe(true);
+    }
+  });
+
+  it('picks a target at least minDist from the butterfly origin', () => {
+    const butterfly = { x: 400, y: 300 };
+    for (let i = 0; i < 20; i++) {
+      const t = pickFlightTarget(butterfly, viewW, viewH, minDist);
+      const d = Math.hypot(t.x - butterfly.x, t.y - butterfly.y);
+      expect(d >= minDist).toBe(true);
+    }
+  });
+
+  it('avoids landing on top of the player when one is provided', () => {
+    const butterfly = { x: 400, y: 300 };
+    const player = { x: 760, y: 560 };
+    for (let i = 0; i < 20; i++) {
+      const t = pickFlightTarget(butterfly, viewW, viewH, minDist, player);
+      const dPlayer = Math.hypot(t.x - player.x, t.y - player.y);
+      expect(dPlayer >= minDist).toBe(true);
+    }
+  });
+
+  it('fails soft when the view is degenerate (still returns finite coords)', () => {
+    const t = pickFlightTarget({ x: 5, y: 5 }, 0, 0, minDist);
+    expect(Number.isFinite(t.x)).toBe(true);
+    expect(Number.isFinite(t.y)).toBe(true);
+  });
+
+  it('fails soft on missing butterfly', () => {
+    const t = pickFlightTarget(null, viewW, viewH, minDist);
+    expect(Number.isFinite(t.x)).toBe(true);
+    expect(Number.isFinite(t.y)).toBe(true);
+  });
+});
+
+describe('advanceFlight', () => {
+  const baseButterfly = {
+    x: 0,
+    y: 0,
+    flyStartX: 0,
+    flyStartY: 0,
+    targetX: 100,
+    targetY: 0,
+    flyT: 0,
+    flyDurationMs: 1000,
+  };
+
+  it('advances flyT by dtMs / flyDurationMs', () => {
+    const step = advanceFlight({ ...baseButterfly }, 250);
+    // 250 / 1000 = 0.25
+    expect(step.flyT === 0.25).toBe(true);
+    expect(step.done).toBe(false);
+  });
+
+  it('marks done and clamps flyT to 1 once dt exceeds duration', () => {
+    const step = advanceFlight({ ...baseButterfly }, 1500);
+    expect(step.flyT === 1).toBe(true);
+    expect(step.done).toBe(true);
+  });
+
+  it('snaps to the target when done', () => {
+    const step = advanceFlight({ ...baseButterfly }, 2000);
+    expect(step.x === 100).toBe(true);
+    expect(step.y === 0).toBe(true);
+  });
+
+  it('interpolates start → target (midpoint is partway across)', () => {
+    // With linear interpolation at flyT 0.5 → x=50, but eased so the position
+    // is closer to target. Just assert it's strictly between 0 and 100.
+    const step = advanceFlight({ ...baseButterfly, flyDurationMs: 1000 }, 500);
+    expect(step.x > 0).toBe(true);
+    expect(step.x < 100).toBe(true);
+    expect(step.done).toBe(false);
+  });
+
+  it('does not move backwards', () => {
+    // dtMs of 0 should not advance.
+    const step = advanceFlight({ ...baseButterfly, flyT: 0.3 }, 0);
+    expect(step.flyT === 0.3).toBe(true);
+    expect(step.done).toBe(false);
+  });
+
+  it('handles non-finite dtMs without advancing', () => {
+    const step = advanceFlight({ ...baseButterfly, flyT: 0.2 }, NaN);
+    expect(step.flyT === 0.2).toBe(true);
+  });
+
+  it('resumes from an existing flyT rather than restarting', () => {
+    const step = advanceFlight({ ...baseButterfly, flyT: 0.5 }, 250);
+    expect(step.flyT === 0.75).toBe(true);
   });
 });
