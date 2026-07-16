@@ -48,13 +48,7 @@ tests/                    # In-browser harness + *.test.js for every game's logi
 
 There is **no build step** — the repo root is the static site. Relative paths throughout mean it works under a project subpath (`/<repo-name>/`) as well as at a domain root.
 
-### GitHub Pages
-
-`.github/workflows/deploy.yml` uploads the whole repo as the Pages artifact on push to `main`.
-
-### Cloudflare Pages
-
-`.github/workflows/deploy-cloudflare.yml` runs `wrangler pages deploy .` on push to `main`. One-time setup:
+Hosted on **Cloudflare Pages** via `.github/workflows/deploy-cloudflare.yml`, which runs `wrangler pages deploy .` on push to `main`. One-time setup:
 
 1. Create the project (production branch `main`):
    ```bash
@@ -64,7 +58,7 @@ There is **no build step** — the repo root is the static site. Relative paths 
    - `CLOUDFLARE_API_TOKEN` — a token scoped to **Account · Cloudflare Pages · Edit**.
    - `CLOUDFLARE_ACCOUNT_ID` — your account ID (dashboard home, right sidebar).
 
-Set `--project-name` in the workflow to match the project name from step 1. The GitHub Pages and Cloudflare workflows can both run; disable the one you don't want (e.g. delete `deploy.yml` if Cloudflare is your only target).
+Set `--project-name` in the workflow to match the project name from step 1.
 
 ## License
 
