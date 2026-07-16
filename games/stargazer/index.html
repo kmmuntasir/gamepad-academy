@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stargazer — Gamepad Academy</title>
+    <link rel="stylesheet" href="../../shared/styles.css" />
+    <style>
+      /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      .star-stage {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        align-items: stretch;
+      }
+      .star-instructions {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: var(--fs-md);
+      }
+      .star-instructions strong {
+        color: var(--c-primary);
+      }
+      .star-status {
+        text-align: center;
+        color: var(--c-text);
+        font-size: var(--fs-md);
+        min-height: 1.6em;
+      }
+      .star-status strong {
+        color: var(--c-primary);
+      }
+      .prompt-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: var(--space-3);
+        min-height: 88px;
+      }
+      .prompt-row__label {
+        font-size: var(--fs-md);
+        color: var(--c-text);
+      }
+      .prompt-row__label.is-idle {
+        color: var(--c-muted);
+      }
+      #star-canvas {
+        width: 100%;
+        height: min(64vh, 560px);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        background-color: #05060d;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        touch-action: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="back-home-row">
+      <a class="back-home" href="../../index.html">← Back to Home</a>
+    </div>
+
+    <main class="page star-stage">
+      <h1 class="page__title">Stargazer</h1>
+
+      <div class="gamepad-banner" role="status" aria-live="polite">
+        <span class="gamepad-banner__dot" aria-hidden="true"></span>
+        <span id="banner-text">No controller — use the keyboard (Arrows = move, WASD = face).</span>
+      </div>
+
+      <p class="star-instructions">
+        Move the <strong>left stick</strong> to fly the glowing cursor.
+        Hover a faded dot, then press the <strong>matching face button</strong>
+        to ignite a star and draw a constellation.
+      </p>
+
+      <div class="prompt-row" id="prompt-row">
+        <span class="prompt-row__label is-idle" id="prompt-label">Explore the sky…</span>
+        <span id="prompt-glyph" aria-hidden="true"></span>
+      </div>
+
+      <p class="star-status" id="star-status">Stars ignited: <strong>0</strong></p>
+
+      <canvas id="star-canvas" aria-label="Night sky starfield"></canvas>
+    </main>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
