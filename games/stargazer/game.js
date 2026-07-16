@@ -20,7 +20,14 @@ import {
   STICK_LEFT,
   LAYOUT_CHANGE,
 } from '../../shared/button-mapping.js';
-import { findHoveredDot, promptForDot, connectDots } from './constellation-logic.js';
+import {
+  findHoveredDot,
+  promptForDot,
+  connectDots,
+  isComplete,
+  stepCursorVelocity,
+  celebrationAlpha,
+} from './constellation-logic.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -39,8 +46,13 @@ const DOT_COUNT = 8;
 
 // Cursor tuning.
 const CURSOR_SPEED = 320; // px per second at full stick deflection
-const CURSOR_RADIUS = 26; // hit radius for hover detection
-const CURSOR_DRAW_RADIUS = 12; // visual size of the glowing cursor
+const CURSOR_RADIUS = 36; // hit radius for hover detection (bigger hit area)
+const CURSOR_DRAW_RADIUS = 20; // visual size of the glowing cursor (bigger)
+// Velocity approach rate per second (higher = snappier; smaller = more glide).
+const CURSOR_DECEL = 6.0;
+
+// Celebration overlay: shown for this many ms on constellation completion.
+const CELEBRATE_DURATION_MS = 3000;
 
 // Dot tuning.
 const DOT_RADIUS = 5; // visual radius of a faded dot
@@ -73,6 +85,11 @@ const COLOR_DOT_HOVER = 'rgba(174, 184, 216, 0.85)';
 const COLOR_STAR = '#fff4c2';
 const COLOR_STAR_GLOW = 'rgba(255, 244, 194, 0.55)';
 const COLOR_LINE = 'rgba(123, 237, 159, 0.7)';
+const COLOR_CELEBRATE = '#fff7c2';
+
+// Phase identifiers for the simple state machine (mirrors Simon's pattern).
+const PHASE_PLAY = 'play'; // normal play: cursor moves, dots ignite
+const PHASE_CELEBRATE = 'celebrate'; // completion overlay showing
 
 // ---------------------------------------------------------------------------
 // DOM
@@ -96,7 +113,7 @@ let dpr = 1;
 let viewW = 0;
 let viewH = 0;
 
-const cursor = { x: 0, y: 0 };
+const cursor = { x: 0, y: 0, vx: 0, vy: 0 };
 
 // Each dot: { x, y, requiredPosition, ignited } where x/y are in CSS px.
 let dots = [];
@@ -109,8 +126,19 @@ let hoveredDot = null;
 // Live stick axis (from gamepad-stick-left) OR synthesized from held keys.
 let stickX = 0;
 let stickY = 0;
+// Target velocity derived from the stick axis (stick * CURSOR_SPEED). The
+// cursor's actual velocity approaches this target each frame, so releasing
+// the stick decays velocity to zero (glide to a stop) rather than freezing.
+let targetVx = 0;
+let targetVy = 0;
 // Held stick-direction keys for the keyboard fallback.
 const heldStickKeys = new Set();
+
+// Game phase (PHASE_PLAY | PHASE_CELEBRATE). During celebrate, input is
+// ignored and a bright pulsing overlay is drawn; on completion a fresh game
+// is auto-started.
+let phase = PHASE_PLAY;
+let celebrateStartTs = null;
 
 // One persistent glyph reused across frames; active pad updated on hover.
 let glyphNode = null;
@@ -217,6 +245,12 @@ function igniteDot(dot) {
     playTone({ freq: EDGE_FREQ, duration: EDGE_DURATION, type: 'sine', gain: EDGE_GAIN });
   }
   renderStatus();
+  // On full completion, enter the celebration phase (idempotent — never
+  // re-enter celebrate if already celebrating).
+  if (phase === PHASE_PLAY && isComplete(ignited, dots)) {
+    phase = PHASE_CELEBRATE;
+    celebrateStartTs = null; // seeded on first update() tick
+  }
   return true;
 }
 
@@ -224,13 +258,33 @@ function renderStatus() {
   if (!statusEl) return;
   const total = dots.length;
   const lit = ignited.length;
-  const done = total > 0 && lit === total;
+  const done = isComplete(ignited, dots);
   const label = done ? 'Constellation complete!' : 'Stars ignited:';
   if (done) {
     statusEl.innerHTML = `<strong>${label}</strong>`;
   } else {
     statusEl.innerHTML = `${label} <strong>${lit}</strong> / ${total}`;
   }
+}
+
+// Start a fresh game: rebuild the sky, clear ignition order, recenter the
+// cursor and zero its velocity, and drop back into the play phase.
+function resetGame() {
+  buildDots();
+  ignited.length = 0;
+  cursor.x = viewW / 2;
+  cursor.y = viewH / 2;
+  cursor.vx = 0;
+  cursor.vy = 0;
+  targetVx = 0;
+  targetVy = 0;
+  stickX = 0;
+  stickY = 0;
+  heldStickKeys.clear();
+  hoveredDot = null;
+  celebrateStartTs = null;
+  phase = PHASE_PLAY;
+  renderStatus();
 }
 
 // ---------------------------------------------------------------------------
@@ -250,10 +304,36 @@ function syncBanner() {
 // Update / Draw
 // ---------------------------------------------------------------------------
 
-function update(dt) {
-  // Move the cursor by the live (or synthesized) stick axis.
-  cursor.x = clamp(cursor.x + stickX * CURSOR_SPEED * dt, 0, viewW);
-  cursor.y = clamp(cursor.y + stickY * CURSOR_SPEED * dt, 0, viewH);
+function update(dt, ts) {
+  // Drive the celebration timer; when it elapses, start a fresh game.
+  if (phase === PHASE_CELEBRATE) {
+    if (celebrateStartTs == null) celebrateStartTs = ts;
+    const elapsed = ts - celebrateStartTs;
+    if (elapsed >= CELEBRATE_DURATION_MS) {
+      resetGame();
+    }
+    // Still tick the cursor's velocity to a stop so the gliding motion is
+    // visible behind the bright overlay, but skip hover/prompt work.
+    const next = stepCursorVelocity(cursor, { tvx: 0, tvy: 0 }, { decel: CURSOR_DECEL, dt });
+    cursor.vx = next.vx;
+    cursor.vy = next.vy;
+    cursor.x = clamp(cursor.x + cursor.vx * dt, 0, viewW);
+    cursor.y = clamp(cursor.y + cursor.vy * dt, 0, viewH);
+    return;
+  }
+
+  // Target velocity follows the live (or synthesized) stick axis; the actual
+  // cursor velocity approaches it each frame (inertia / glide to a stop).
+  targetVx = stickX * CURSOR_SPEED;
+  targetVy = stickY * CURSOR_SPEED;
+  const stepped = stepCursorVelocity(cursor, { tvx: targetVx, tvy: targetVy }, {
+    decel: CURSOR_DECEL,
+    dt,
+  });
+  cursor.vx = stepped.vx;
+  cursor.vy = stepped.vy;
+  cursor.x = clamp(cursor.x + cursor.vx * dt, 0, viewW);
+  cursor.y = clamp(cursor.y + cursor.vy * dt, 0, viewH);
 
   // Recompute hover over un-ignited dots only (ignited stars stay bright).
   const candidates = dots.filter((d) => !d.ignited);
@@ -306,7 +386,7 @@ function drawCursor() {
   if (!ctx) return;
   // Outer halo.
   ctx.beginPath();
-  ctx.arc(cursor.x, cursor.y, CURSOR_DRAW_RADIUS * 2.2, 0, Math.PI * 2);
+  ctx.arc(cursor.x, cursor.y, CURSOR_DRAW_RADIUS * 1.8, 0, Math.PI * 2);
   ctx.fillStyle = COLOR_CURSOR_HALO;
   ctx.fill();
   // Core.
@@ -339,6 +419,17 @@ function draw() {
 
   // Cursor last so it is always visible above everything.
   drawCursor();
+
+  // Bright pulsing overlay while celebrating.
+  if (phase === PHASE_CELEBRATE && celebrateStartTs != null) {
+    const elapsed = performance.now() - celebrateStartTs;
+    const alpha = celebrationAlpha(elapsed, CELEBRATE_DURATION_MS);
+    const prevAlpha = ctx.globalAlpha;
+    ctx.globalAlpha = Math.max(prevAlpha, alpha * 0.75);
+    ctx.fillStyle = COLOR_CELEBRATE;
+    ctx.fillRect(0, 0, viewW, viewH);
+    ctx.globalAlpha = prevAlpha;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -350,7 +441,7 @@ function loop(ts) {
   // Clamp dt to avoid huge jumps after a tab is backgrounded (zero-stress).
   const dt = Math.min(0.05, (ts - lastTs) / 1000);
   lastTs = ts;
-  update(dt);
+  update(dt, ts);
   draw();
   rafId = requestAnimationFrame(loop);
 }
@@ -373,12 +464,16 @@ function stop() {
 // ---------------------------------------------------------------------------
 
 function onStickLeft(event) {
+  // Ignore stick input during celebration — new game resets cleanly.
+  if (phase !== PHASE_PLAY) return;
   const detail = event.detail || {};
   stickX = Number(detail.x) || 0;
   stickY = Number(detail.y) || 0;
 }
 
 function onFacePress(position) {
+  // Input is ignored during celebration.
+  if (phase !== PHASE_PLAY) return;
   // No hovered dot → no-op (never a penalty).
   if (!hoveredDot) return;
   const required = promptForDot(hoveredDot);
@@ -420,6 +515,8 @@ function onKeyUp(event) {
 }
 
 function recomputeStickFromKeys() {
+  // During celebration the cursor glides to a stop; ignore held keys.
+  if (phase !== PHASE_PLAY) return;
   let x = 0;
   let y = 0;
   if (heldStickKeys.has('left')) x -= 1;

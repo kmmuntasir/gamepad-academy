@@ -6,6 +6,9 @@ import {
   findHoveredDot,
   promptForDot,
   connectDots,
+  isComplete,
+  stepCursorVelocity,
+  celebrationAlpha,
 } from '../games/stargazer/constellation-logic.js';
 
 // ---------------------------------------------------------------------------
@@ -197,5 +200,127 @@ describe('connectDots', () => {
       { a: C, b: B },
       { a: B, b: A },
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isComplete
+// ---------------------------------------------------------------------------
+
+describe('isComplete', () => {
+  it('returns true when every dot is ignited', () => {
+    const dots = [{ x: 0 }, { x: 1 }, { x: 2 }];
+    const ignited = [{ x: 0 }, { x: 1 }, { x: 2 }];
+    expect(isComplete(ignited, dots)).toBe(true);
+  });
+
+  it('returns false when only some dots are ignited', () => {
+    const dots = [{ x: 0 }, { x: 1 }, { x: 2 }];
+    const ignited = [{ x: 0 }];
+    expect(isComplete(ignited, dots)).toBe(false);
+  });
+
+  it('returns false when nothing is ignited', () => {
+    const dots = [{ x: 0 }, { x: 1 }];
+    expect(isComplete([], dots)).toBe(false);
+  });
+
+  it('returns false when there are no dots', () => {
+    expect(isComplete([], [])).toBe(false);
+  });
+
+  it('returns false for null inputs', () => {
+    expect(isComplete(null, null)).toBe(false);
+  });
+
+  it('returns true when lit exceeds total (defensive overcount)', () => {
+    const dots = [{ x: 0 }];
+    const ignited = [{ x: 0 }, { x: 1 }];
+    expect(isComplete(ignited, dots)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// stepCursorVelocity
+// ---------------------------------------------------------------------------
+
+describe('stepCursorVelocity', () => {
+  it('decays velocity toward 0 when target is 0', () => {
+    const out = stepCursorVelocity({ vx: 100, vy: 100 }, { tvx: 0, tvy: 0 }, { decel: 6, dt: 0.1 });
+    expect(out.vx < 100).toBe(true);
+    expect(out.vy < 100).toBe(true);
+    expect(out.vx > 0).toBe(true); // not instant freeze — still gliding
+    expect(out.vy > 0).toBe(true);
+  });
+
+  it('asymptotically approaches zero but never overshoots', () => {
+    let v = { vx: 100, vy: 0 };
+    for (let i = 0; i < 60; i++) {
+      v = stepCursorVelocity(v, { tvx: 0, tvy: 0 }, { decel: 6, dt: 1 / 60 });
+    }
+    expect(v.vx < 1).toBe(true);
+    expect(v.vx >= 0).toBe(true);
+  });
+
+  it('approaches a non-zero target', () => {
+    let v = { vx: 0, vy: 0 };
+    for (let i = 0; i < 30; i++) {
+      v = stepCursorVelocity(v, { tvx: 200, tvy: 0 }, { decel: 6, dt: 1 / 60 });
+    }
+    expect(v.vx > 150).toBe(true);
+    expect(v.vx <= 200).toBe(true);
+  });
+
+  it('is frame-rate independent: two 0.5-dt steps ≈ one 1.0-dt step', () => {
+    const opts = { decel: 6, dt: 0.1 };
+    const one = stepCursorVelocity({ vx: 0, vy: 0 }, { tvx: 100, tvy: 0 }, opts);
+    const halfOptsA = { decel: 6, dt: 0.05 };
+    const step1 = stepCursorVelocity({ vx: 0, vy: 0 }, { tvx: 100, tvy: 0 }, halfOptsA);
+    const two = stepCursorVelocity(step1, { tvx: 100, tvy: 0 }, halfOptsA);
+    expect(Math.abs(one.vx - two.vx) < 0.5).toBe(true);
+    expect(Math.abs(one.vy - two.vy) < 0.5).toBe(true);
+  });
+
+  it('handles missing inputs safely (no NaN, no throw)', () => {
+    const out = stepCursorVelocity({}, {}, {});
+    expect(Number.isFinite(out.vx)).toBe(true);
+    expect(Number.isFinite(out.vy)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// celebrationAlpha
+// ---------------------------------------------------------------------------
+
+describe('celebrationAlpha', () => {
+  it('returns 0 before the window starts', () => {
+    expect(celebrationAlpha(-100, 3000)).toBe(0);
+  });
+
+  it('returns 0 after the window ends', () => {
+    expect(celebrationAlpha(4000, 3000)).toBe(0);
+  });
+
+  it('returns a value within [0, 1] inside the window', () => {
+    for (let t = 0; t <= 3000; t += 100) {
+      const a = celebrationAlpha(t, 3000);
+      expect(a >= 0).toBe(true);
+      expect(a <= 1).toBe(true);
+    }
+  });
+
+  it('peaks near the midpoint of the window', () => {
+    const dur = 3000;
+    const mid = celebrationAlpha(dur / 2, dur);
+    const early = celebrationAlpha(dur * 0.1, dur);
+    const late = celebrationAlpha(dur * 0.9, dur);
+    expect(mid > early).toBe(true);
+    expect(mid > late).toBe(true);
+  });
+
+  it('returns 0 at exactly t=0 and t=duration', () => {
+    expect(celebrationAlpha(0, 3000)).toBe(0);
+    // At t=duration, sin(π) ≈ 1.2e-16 — effectively 0.
+    expect(Math.abs(celebrationAlpha(3000, 3000)) < 1e-9).toBe(true);
   });
 });

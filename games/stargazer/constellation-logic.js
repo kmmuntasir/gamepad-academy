@@ -71,3 +71,72 @@ export function connectDots(ignited) {
   }
   return edges;
 }
+
+/**
+ * Return true when every dot has been ignited.
+ *
+ * Pure replacement for the inline `lit === total` check previously at
+ * game.js:227. Treats missing inputs as "not complete" (total / safe).
+ *
+ * @param {Array<object>} ignited  ignited dots in ignition order
+ * @param {Array<object>} dots     all dots in the sky
+ * @returns {boolean}
+ */
+export function isComplete(ignited, dots) {
+  const total = (dots && dots.length) || 0;
+  const lit = (ignited && ignited.length) || 0;
+  return total > 0 && lit >= total;
+}
+
+/**
+ * Step the cursor's velocity toward a target velocity, decelerating with
+ * inertia when the target is zero (stick released → glide to a stop).
+ *
+ * Mirrors the shape of `verticalVelocity` in
+ * games/hot-air-balloon/balloon-physics.js:45-53: a simple dt-scaled approach
+ * toward the target. `decel` is the approach rate per second (higher = snappier
+ * response and faster deceleration). Frame-rate independent via `dt` (seconds).
+ *
+ * With a non-zero target the velocity approaches the target at `decel` per
+ * second; with a zero target the same math naturally decays velocity toward 0,
+ * producing the glide-to-stop feel.
+ *
+ * @param {{vx:number,vy:number}} velocity      current cursor velocity
+ * @param {{tvx:number,tvy:number}} target      target velocity (stick * speed)
+ * @param {{decel:number, dt:number}} opts      approach rate (1/s) and frame dt (s)
+ * @returns {{vx:number,vy:number}} new velocity
+ */
+export function stepCursorVelocity({ vx, vy }, { tvx, tvy }, { decel, dt }) {
+  const rate = Math.max(0, Number(decel) || 0);
+  const d = Math.max(0, Number(dt) || 0);
+  // dt-clamped approach factor in [0,1]; at rate*dt ≥ 1 we snap to target.
+  const a = 1 - Math.exp(-rate * d);
+  const sx = Number(vx) || 0;
+  const sy = Number(vy) || 0;
+  const tx = Number(tvx) || 0;
+  const ty = Number(tvy) || 0;
+  return {
+    vx: sx + (tx - sx) * a,
+    vy: sy + (ty - sy) * a,
+  };
+}
+
+/**
+ * Return a celebration pulse alpha in [0, 1] for the given elapsed time.
+ *
+ * Uses a single sine bump over the window so the overlay fades in, peaks at the
+ * midpoint, and fades out — a bright, friendly congratulations flash. Values
+ * outside the window clamp to 0.
+ *
+ * @param {number} elapsedMs    ms since celebration started
+ * @param {number} durationMs   total celebration duration
+ * @returns {number} alpha in [0,1]
+ */
+export function celebrationAlpha(elapsedMs, durationMs) {
+  const dur = Math.max(1, Number(durationMs) || 1);
+  const t = Number(elapsedMs) || 0;
+  if (t < 0 || t > dur) return 0;
+  // Half-sine from 0 → π across the window: 0 at both ends, 1 at midpoint.
+  const phase = (t / dur) * Math.PI;
+  return Math.max(0, Math.min(1, Math.sin(phase)));
+}
