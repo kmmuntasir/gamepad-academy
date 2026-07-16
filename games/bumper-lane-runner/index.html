@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bumper Lane Runner — Gamepad Academy</title>
+    <link rel="stylesheet" href="../../shared/styles.css" />
+    <style>
+      /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      .runner-stage {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        align-items: stretch;
+      }
+      .runner-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        gap: var(--space-5);
+        flex-wrap: wrap;
+      }
+      .runner-header__score {
+        font-size: var(--fs-xl);
+        font-weight: 800;
+        color: var(--c-accent);
+      }
+      .runner-instructions {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: var(--fs-md);
+        max-width: 50ch;
+      }
+      .runner-instructions strong {
+        color: var(--c-primary);
+      }
+      .prompt-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: var(--space-4);
+        flex-wrap: wrap;
+      }
+      .prompt-row__pair {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+      .prompt-row__pair--right {
+        flex-direction: row-reverse;
+      }
+      .prompt-row__label {
+        font-size: var(--fs-md);
+        color: var(--c-text);
+      }
+      /* Shoulder label chip (LB / R1 / L …) rendered per detected layout. */
+      .shoulder-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        height: 44px;
+        padding: 0 var(--space-3);
+        background-color: var(--c-surface-raised);
+        color: var(--c-text);
+        font-weight: 800;
+        font-size: var(--fs-lg);
+        border-radius: var(--radius-sm);
+        border: 2px solid var(--c-muted);
+      }
+      .canvas-shell {
+        position: relative;
+        width: 100%;
+        height: min(70vh, 620px);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-md);
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        background-color: #1a2238;
+      }
+      #game {
+        width: 100%;
+        height: 100%;
+        display: block;
+        touch-action: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .canvas-shell {
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="back-home-row">
+      <a class="back-home" href="../../index.html">← Back to Home</a>
+    </div>
+
+    <main class="page runner-stage">
+      <div class="runner-header">
+        <h1 class="page__title">Bumper Lane Runner</h1>
+        <span class="runner-header__score" id="score">Coins: 0</span>
+      </div>
+
+      <div class="gamepad-banner" role="status" aria-live="polite">
+        <span class="gamepad-banner__dot" aria-hidden="true"></span>
+        <span id="banner-text">No controller — use the keyboard (Q = left bumper, E = right bumper).</span>
+      </div>
+
+      <p class="runner-instructions">
+        Use the <strong>shoulder bumpers</strong> to hop between lanes.
+        Collect <strong>coins</strong>, and bump gently off the soft blocks —
+        you never lose, the run just keeps going!
+      </p>
+
+      <div class="prompt-row" id="prompt-row">
+        <span class="prompt-row__pair">
+          <span class="prompt-row__label">Hop left:</span>
+          <span class="shoulder-chip" id="chip-left">LB</span>
+        </span>
+        <span class="prompt-row__pair prompt-row__pair--right">
+          <span class="prompt-row__label">Hop right:</span>
+          <span class="shoulder-chip" id="chip-right">RB</span>
+        </span>
+      </div>
+
+      <div class="canvas-shell">
+        <canvas id="game" aria-label="Bumper lane runner track"></canvas>
+      </div>
+    </main>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
