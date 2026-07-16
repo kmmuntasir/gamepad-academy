@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hot Air Balloon — Gamepad Academy</title>
+    <link rel="stylesheet" href="../../shared/styles.css" />
+    <style>
+      .balloon-stage {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        align-items: stretch;
+      }
+      .balloon-instructions {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: var(--fs-md);
+      }
+      .balloon-instructions strong {
+        color: var(--c-primary);
+      }
+      .balloon-score-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--space-3);
+      }
+      .balloon-score {
+        font-size: var(--fs-lg);
+        font-weight: 800;
+        color: var(--c-primary);
+      }
+      #game-canvas {
+        width: 100%;
+        height: min(64vh, 580px);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        background-color: #1b2a4a;
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="back-home-row">
+      <a class="back-home" href="../../index.html">&larr; Back to Home</a>
+    </div>
+
+    <main class="page balloon-stage">
+      <h1 class="page__title">Hot Air Balloon</h1>
+
+      <div class="gamepad-banner" role="status" aria-live="polite">
+        <span class="gamepad-banner__dot" aria-hidden="true"></span>
+        <span id="banner-text">No controller — hold Space to fire the burner.</span>
+      </div>
+
+      <p class="balloon-instructions">
+        Hold the <strong id="trigger-label">RT</strong> trigger to fire the burner.
+        Squeeze harder to rise faster, ease off to hover, release to drift down.
+        Collect stars and ride over the clouds.
+      </p>
+
+      <div class="balloon-score-row">
+        <span class="balloon-score">Stars: <span id="score">0</span></span>
+        <span class="balloon-instructions">Keyboard: hold <strong>Space</strong> = full burner.</span>
+      </div>
+
+      <canvas id="game-canvas" aria-label="Hot air balloon play area"></canvas>
+    </main>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
