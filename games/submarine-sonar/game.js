@@ -13,11 +13,12 @@
 // the sub. The two event streams are not coupled here.
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
-import { clamp } from '../../shared/utils.js';
+import { clamp, circleCollision, playBlip } from '../../shared/utils.js';
 import {
   pingRadius,
   revealedByPing,
   nextHeadlightColor,
+  markDiscovered,
 } from './sonar-logic.js';
 import { stickClickLabel } from '../../shared/button-mapping.js';
 
@@ -33,6 +34,7 @@ const LINGER_MS = 1200; // how long an entity stays lit after the ring reaches i
 const SUB_RADIUS = 16; // px (CSS space)
 const SUB_MAX_SPEED = 260; // px/sec at full stick deflection
 const STICK_DEADZONE = 0.18; // ignore tiny noise when integrating movement
+const DPAD_SPEED = 200; // px/sec when a dpad/arrow direction is held
 const ENTITY_COUNT = 16; // fish + treasure hidden in the dark
 const FISH_EMOJIS = ['🐠', '🐟', '🐡', '🦑', '🐢', '🦐'];
 const TREASURE_EMOJIS = ['🗝️', '💰', '📦', '🍾'];
@@ -51,6 +53,7 @@ const bannerText = banner.querySelector('.gamepad-banner__text');
 const pingPrompt = document.getElementById('ping-prompt');
 const colorPrompt = document.getElementById('color-prompt');
 const headlightSwatch = document.getElementById('headlight-swatch');
+const discoveredCount = document.getElementById('discovered-count');
 
 // ---------------------------------------------------------------------------
 // State
@@ -72,8 +75,12 @@ let headlightIndex = 0;
 let activePing = null;
 let lastPingStartedAt = -Infinity;
 
-// Entities hidden in the dark. Each: { id, x, y, emoji, size, litUntil }
+// Entities hidden in the dark. Each: { id, x, y, emoji, size, litUntil, discovered }
 const entities = [];
+
+// Ids of creatures discovered (revealed by ping OR overlapped by the sub).
+// Deduped per creature — positive-only, zero-stress objective (PRD).
+const discovered = new Set();
 
 // Cached last frame timestamp for dt.
 let lastTimestamp = 0;
@@ -95,6 +102,7 @@ function spawnEntities() {
       emoji: pool[Math.floor(Math.random() * pool.length)],
       size: isTreasure ? 34 : 30,
       litUntil: 0,
+      discovered: false,
     });
   }
   // Place entities once we know the canvas size; re-place on resize.
@@ -153,6 +161,31 @@ function onStickLeft(event) {
   sub.vy = y * SUB_MAX_SPEED;
 }
 
+// D-Pad → unit directional velocity. Defensive fallback so navigation works
+// even without the synthesized stick events (T1). Tracks held directions to
+// allow simultaneous keys (e.g. Up+Right), and zeroes on release of the last
+// held direction. Coexists with onStickLeft: whichever fires last wins this
+// frame, and any release zeroes the relevant axis.
+const heldDpad = { up: false, down: false, left: false, right: false };
+
+function applyDpad() {
+  let vx = 0;
+  let vy = 0;
+  if (heldDpad.left) vx -= 1;
+  if (heldDpad.right) vx += 1;
+  if (heldDpad.up) vy -= 1;
+  if (heldDpad.down) vy += 1;
+  sub.vx = vx * DPAD_SPEED;
+  sub.vy = vy * DPAD_SPEED;
+}
+
+function makeDpadHandler(dir, pressed) {
+  return () => {
+    heldDpad[dir] = pressed;
+    applyDpad();
+  };
+}
+
 function onStickClickLeft() {
   // L3 → sonar ping. Gentle cooldown; never a fail state — spam is just ignored.
   const now = performance.now();
@@ -197,6 +230,12 @@ function updatePrompts() {
 
 function updateHeadlightSwatch() {
   headlightSwatch.style.backgroundColor = HEADLIGHT_COLORS[headlightIndex];
+}
+
+function updateDiscoveredHud() {
+  if (discoveredCount) {
+    discoveredCount.textContent = String(discovered.size);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -283,12 +322,31 @@ function update(dt) {
         if (revealedByPing({ x: e.x, y: e.y, size: e.size }, sub, radius)) {
           activePing.reached.add(e.id);
           e.litUntil = performance.now() + LINGER_MS;
+          // Discovery (positive-only): first ping reveal counts, deduped.
+          if (markDiscovered(e, discovered)) {
+            updateDiscoveredHud();
+            playBlip();
+          }
         }
       }
     }
     // Retire the ping once its ring has fully expanded and faded.
     if (elapsed >= PING_DURATION_MS + 200) {
       activePing = null;
+    }
+  }
+
+  // Sub-overlap discovery: touching a creature also counts (first time only).
+  // Overlap uses circle-vs-circle with the entity's half-size as its radius.
+  const subCircle = { x: sub.x, y: sub.y, r: SUB_RADIUS };
+  for (const e of entities) {
+    if (e.discovered) continue;
+    const entityCircle = { x: e.x, y: e.y, r: e.size / 2 };
+    if (circleCollision(subCircle, entityCircle)) {
+      if (markDiscovered(e, discovered)) {
+        updateDiscoveredHud();
+        playBlip();
+      }
     }
   }
 }
@@ -455,6 +513,14 @@ function loop(timestamp) {
 
 const handlers = {
   stickLeft: onStickLeft,
+  dpadUp: makeDpadHandler('up', true),
+  dpadDown: makeDpadHandler('down', true),
+  dpadLeft: makeDpadHandler('left', true),
+  dpadRight: makeDpadHandler('right', true),
+  dpadUpUp: makeDpadHandler('up', false),
+  dpadDownUp: makeDpadHandler('down', false),
+  dpadLeftUp: makeDpadHandler('left', false),
+  dpadRightUp: makeDpadHandler('right', false),
   stickClickLeft: onStickClickLeft,
   stickClickRight: onStickClickRight,
   layoutChange: onLayoutChange,
@@ -463,6 +529,14 @@ const handlers = {
 
 function addListeners() {
   window.addEventListener('gamepad-stick-left', handlers.stickLeft);
+  window.addEventListener('gamepad-dpad-up', handlers.dpadUp);
+  window.addEventListener('gamepad-dpad-down', handlers.dpadDown);
+  window.addEventListener('gamepad-dpad-left', handlers.dpadLeft);
+  window.addEventListener('gamepad-dpad-right', handlers.dpadRight);
+  window.addEventListener('gamepad-dpad-up-up', handlers.dpadUpUp);
+  window.addEventListener('gamepad-dpad-down-up', handlers.dpadDownUp);
+  window.addEventListener('gamepad-dpad-left-up', handlers.dpadLeftUp);
+  window.addEventListener('gamepad-dpad-right-up', handlers.dpadRightUp);
   window.addEventListener('gamepad-stick-click-left', handlers.stickClickLeft);
   window.addEventListener('gamepad-stick-click-right', handlers.stickClickRight);
   window.addEventListener('gamepad-layout-change', handlers.layoutChange);
@@ -471,6 +545,14 @@ function addListeners() {
 
 function removeListeners() {
   window.removeEventListener('gamepad-stick-left', handlers.stickLeft);
+  window.removeEventListener('gamepad-dpad-up', handlers.dpadUp);
+  window.removeEventListener('gamepad-dpad-down', handlers.dpadDown);
+  window.removeEventListener('gamepad-dpad-left', handlers.dpadLeft);
+  window.removeEventListener('gamepad-dpad-right', handlers.dpadRight);
+  window.removeEventListener('gamepad-dpad-up-up', handlers.dpadUpUp);
+  window.removeEventListener('gamepad-dpad-down-up', handlers.dpadDownUp);
+  window.removeEventListener('gamepad-dpad-left-up', handlers.dpadLeftUp);
+  window.removeEventListener('gamepad-dpad-right-up', handlers.dpadRightUp);
   window.removeEventListener('gamepad-stick-click-left', handlers.stickClickLeft);
   window.removeEventListener('gamepad-stick-click-right', handlers.stickClickRight);
   window.removeEventListener('gamepad-layout-change', handlers.layoutChange);
@@ -484,6 +566,7 @@ function start() {
   addListeners();
   updatePrompts();
   updateHeadlightSwatch();
+  updateDiscoveredHud();
 
   // Reflect whatever gamepad state the singleton already knows about.
   if (gamepadManager && gamepadManager.isActive && gamepadManager.isActive()) {

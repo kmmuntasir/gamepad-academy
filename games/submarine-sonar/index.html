@@ -66,6 +66,18 @@
         margin-left: var(--space-1);
         border: 1px solid rgba(255, 255, 255, 0.35);
       }
+      .discovery-hud {
+        margin: var(--space-3) 0 0;
+        padding: var(--space-2) var(--space-3);
+        background-color: var(--c-surface);
+        border-radius: var(--radius-md);
+        color: var(--c-text);
+        font-size: var(--fs-md);
+        text-align: center;
+      }
+      .discovery-hud strong {
+        color: var(--c-accent, #ffd23f);
+      }
       @media (prefers-reduced-motion: reduce) {
         .submarine-stage,
         .headlight-readout__swatch {
@@ -96,6 +108,11 @@
         <canvas id="game" aria-label="Submarine sonar playfield"></canvas>
       </div>
 
+      <p class="discovery-hud" role="status" aria-live="polite">
+        Creatures discovered: <strong id="discovered-count">0</strong> /
+        <span id="discovered-total">16</span>
+      </p>
+
       <section class="submarine-instructions">
         <h2>How to play</h2>
         <ul>
@@ -110,6 +127,10 @@
           <li>
             <strong id="color-prompt">R3 (click right stick)</strong> — cycle
             the submarine's headlight color.
+          </li>
+          <li>
+            <strong>Explore</strong> — every creature you reveal with a ping or
+            glide into gets discovered. Find them all!
           </li>
           <li>
             Keyboard works too: <strong>arrows / WASD</strong> to move,

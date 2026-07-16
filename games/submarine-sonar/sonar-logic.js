@@ -103,3 +103,36 @@ export function nextHeadlightColor(current, palette) {
   const base = Number.isFinite(current) ? ((current % len) + len) % len : 0;
   return (base + 1) % len;
 }
+
+// ---------------------------------------------------------------------------
+// Discovery (gentle, positive-only goal — no fail state)
+// ---------------------------------------------------------------------------
+
+/**
+ * Mark `entity` as discovered, deduping against `discoveredSet`.
+ *
+ * Rule (PRD: positive only, zero-stress):
+ *   - If `entity` is missing or has no numeric `id`, returns false (no-op).
+ *   - If `entity.id` is already in `discoveredSet`, returns false (already
+ *     discovered — no double-count, no penalty).
+ *   - Otherwise adds `entity.id` to the set, sets `entity.discovered = true`,
+ *     and returns true so the engine can play a friendly blip exactly once per
+ *     creature.
+ *   - Mutates `entity` and `discoveredSet` in place but performs no other side
+ *     effects (no DOM, no audio) — those live in the engine.
+ *
+ * Both ping-reveals and sub-overlap call this with the same set, so whichever
+ * happens first counts; the second is a silent no-op.
+ *
+ * @param {{id: number, discovered?: boolean}|null|undefined} entity
+ * @param {Set<number>} discoveredSet - mutable set of already-discovered ids
+ * @returns {boolean} true if this call was the first discovery of `entity`
+ */
+export function markDiscovered(entity, discoveredSet) {
+  if (!entity || !discoveredSet) return false;
+  if (!Number.isFinite(entity.id)) return false;
+  if (discoveredSet.has(entity.id)) return false;
+  discoveredSet.add(entity.id);
+  entity.discovered = true;
+  return true;
+}

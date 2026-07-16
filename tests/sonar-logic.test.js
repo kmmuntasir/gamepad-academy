@@ -5,6 +5,7 @@ import {
   pingRadius,
   revealedByPing,
   nextHeadlightColor,
+  markDiscovered,
 } from '../games/submarine-sonar/sonar-logic.js';
 
 describe('pingRadius', () => {
@@ -170,5 +171,68 @@ describe('nextHeadlightColor', () => {
 
   it('returns 0 for a non-finite current', () => {
     expect(nextHeadlightColor(NaN, palette)).toBe(0);
+  });
+});
+
+describe('markDiscovered', () => {
+  it('marks a fresh entity as discovered and returns true', () => {
+    const set = new Set();
+    const entity = { id: 3, discovered: false };
+    expect(markDiscovered(entity, set)).toBe(true);
+    expect(entity.discovered).toBe(true);
+    expect(set.has(3)).toBe(true);
+    expect(set.size).toBe(1);
+  });
+
+  it('does not double-count an already-discovered entity', () => {
+    const set = new Set([3]);
+    const entity = { id: 3, discovered: true };
+    expect(markDiscovered(entity, set)).toBe(false);
+    expect(set.size).toBe(1);
+  });
+
+  it('dedupes across ping-reveal then overlap (same set)', () => {
+    const set = new Set();
+    const entity = { id: 7, discovered: false };
+    // First encounter (say, a ping reveal).
+    expect(markDiscovered(entity, set)).toBe(true);
+    // Second encounter (say, a sub overlap) is a silent no-op.
+    expect(markDiscovered(entity, set)).toBe(false);
+    expect(set.size).toBe(1);
+  });
+
+  const badInputs = [
+    { name: 'null entity', entity: null },
+    { name: 'undefined entity', entity: undefined },
+    { name: 'entity missing id', entity: { discovered: false } },
+    { name: 'entity with non-numeric id', entity: { id: 'x' } },
+    { name: 'entity with NaN id', entity: { id: NaN } },
+  ];
+  badInputs.forEach(({ name, entity }) => {
+    it(`returns false and does not mutate for ${name}`, () => {
+      const set = new Set();
+      expect(markDiscovered(entity, set)).toBe(false);
+      expect(set.size).toBe(0);
+    });
+  });
+
+  it('returns false when discoveredSet is missing', () => {
+    expect(markDiscovered({ id: 1, discovered: false }, null)).toBe(false);
+    expect(markDiscovered({ id: 1, discovered: false }, undefined)).toBe(false);
+  });
+
+  it('accumulates distinct creatures in the same set', () => {
+    const set = new Set();
+    expect(markDiscovered({ id: 1, discovered: false }, set)).toBe(true);
+    expect(markDiscovered({ id: 2, discovered: false }, set)).toBe(true);
+    expect(markDiscovered({ id: 3, discovered: false }, set)).toBe(true);
+    expect(set.size).toBe(3);
+  });
+
+  it('handles negative and fractional ids as valid distinct ids', () => {
+    const set = new Set();
+    expect(markDiscovered({ id: -1, discovered: false }, set)).toBe(true);
+    expect(markDiscovered({ id: -1, discovered: false }, set)).toBe(false);
+    expect(set.size).toBe(1);
   });
 });
