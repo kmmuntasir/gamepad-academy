@@ -1,12 +1,14 @@
 // tests/sequence-logic.test.js — table-driven unit tests for the PURE logic
 // in games/simon-says/sequence-logic.js. No DOM, no gamepad, no side effects.
-import { describe, it, expect } from './harness.js';
+import { describe, it, expect, assertEqual } from './harness.js';
 import { FACE_POSITIONS } from '../shared/button-mapping.js';
 import {
   extendSequence,
   expectedAt,
   isCorrect,
   toneForPosition,
+  buildSequence,
+  nextRound,
 } from '../games/simon-says/sequence-logic.js';
 
 describe('extendSequence', () => {
@@ -162,5 +164,117 @@ describe('toneForPosition', () => {
 
   it('returns null for undefined', () => {
     expect(toneForPosition(undefined)).toBe(null);
+  });
+});
+
+describe('nextRound', () => {
+  const table = [
+    {
+      name: 'mid-plateau (repeatsDone 0 → 1)',
+      input: { length: 3, repeatsDone: 0 },
+      expected: { length: 3, repeatsDone: 1, advanced: false },
+    },
+    {
+      name: 'mid-plateau (repeatsDone 4 → 5)',
+      input: { length: 2, repeatsDone: 4 },
+      expected: { length: 2, repeatsDone: 5, advanced: false },
+    },
+    {
+      name: 'mid-plateau (repeatsDone 8 → 9)',
+      input: { length: 5, repeatsDone: 8 },
+      expected: { length: 5, repeatsDone: 9, advanced: false },
+    },
+    {
+      name: '10th repeat advances length and resets counter',
+      input: { length: 3, repeatsDone: 9 },
+      expected: { length: 4, repeatsDone: 0, advanced: true },
+    },
+    {
+      name: 'advancement at length 1',
+      input: { length: 1, repeatsDone: 9 },
+      expected: { length: 2, repeatsDone: 0, advanced: true },
+    },
+  ];
+
+  table.forEach(({ name, input, expected }) => {
+    it(name, () => {
+      expect(nextRound(input)).toEqual(expected);
+    });
+  });
+
+  it('respects a custom repeatsPerLevel', () => {
+    const result = nextRound({ length: 2, repeatsDone: 2 }, { repeatsPerLevel: 3 });
+    expect(result).toEqual({ length: 3, repeatsDone: 0, advanced: true });
+  });
+
+  it('respects a custom lengthStep', () => {
+    const result = nextRound(
+      { length: 2, repeatsDone: 9 },
+      { repeatsPerLevel: 10, lengthStep: 2 },
+    );
+    expect(result).toEqual({ length: 4, repeatsDone: 0, advanced: true });
+  });
+
+  it('does not advance before the threshold even at repeatsDone 8', () => {
+    const result = nextRound({ length: 4, repeatsDone: 8 });
+    assertEqual(result.advanced, false, 'should not advance at 8/10');
+    assertEqual(result.length > 4, false, 'length must not grow before threshold');
+  });
+
+  it('advances exactly once at the threshold', () => {
+    const before = nextRound({ length: 4, repeatsDone: 8 });
+    const at = nextRound({ length: 4, repeatsDone: 9 });
+    assertEqual(before.advanced, false, '9th repeat should not advance');
+    assertEqual(at.advanced, true, '10th repeat should advance');
+  });
+});
+
+describe('buildSequence', () => {
+  it('returns an array of the requested length', () => {
+    expect(buildSequence(5).length).toBe(5);
+  });
+
+  it('returns an empty array for length 0', () => {
+    expect(buildSequence(0)).toEqual([]);
+  });
+
+  it('returns an empty array for negative length', () => {
+    expect(buildSequence(-3)).toEqual([]);
+  });
+
+  it('returns an empty array for non-integer length', () => {
+    expect(buildSequence(2.5)).toEqual([]);
+  });
+
+  it('returns length 1 for length 1', () => {
+    expect(buildSequence(1).length).toBe(1);
+  });
+
+  const lengthTable = [1, 2, 3, 7, 12, 25];
+
+  lengthTable.forEach((len) => {
+    it(`produces only valid face positions for length ${len}`, () => {
+      const seq = buildSequence(len);
+      expect(seq.every((p) => FACE_POSITIONS.includes(p))).toBe(true);
+    });
+  });
+
+  it('re-randomizes across calls (not a constant pattern)', () => {
+    // With 4 face positions and length >= 8, the chance of two identical
+    // random sequences is (1/4)^8 — astronomically unlikely. Asserting
+    // difference confirms each repeat gets a fresh pattern.
+    const a = buildSequence(8);
+    const b = buildSequence(8);
+    assertEqual(
+      JSON.stringify(a) === JSON.stringify(b),
+      false,
+      'two random sequences of length 8 should differ',
+    );
+  });
+
+  it('returns a fresh array each call (no shared reference)', () => {
+    const a = buildSequence(3);
+    const b = buildSequence(3);
+    assertEqual(a !== b, true, 'array identity must differ');
   });
 });

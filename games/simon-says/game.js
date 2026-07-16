@@ -1,8 +1,10 @@
 // games/simon-says/game.js — DOM memory game engine for Simon Says / Copycat.
-// Event-driven (no rAF loop): plays a growing face-button sequence with tones,
-// then listens for face-button presses and compares against the sequence via
-// the PURE helpers in sequence-logic.js. Wrong presses are ignored (no
-// penalty). Sequence grows by one per successfully echoed round.
+// Event-driven (no rAF loop): plays a face-button sequence with tones, then
+// listens for face-button presses and compares against the sequence via the
+// PURE helpers in sequence-logic.js. Wrong presses are ignored (no penalty).
+// Difficulty curve: the sequence length HOLDS for REPEATS_PER_LEVEL successful
+// repeats (each repeat re-randomizes the sequence via buildSequence), then
+// bumps by LENGTH_STEP. Kid-friendly — no fail state.
 //
 // Imports the centralized GamepadManager singleton and ONLY listens for
 // `gamepad-*` events on `window` — never calls navigator.getGamepads().
@@ -18,8 +20,9 @@ import {
   LAYOUT_CHANGE,
 } from '../../shared/button-mapping.js';
 import {
-  extendSequence,
+  buildSequence,
   isCorrect,
+  nextRound,
   toneForPosition,
 } from './sequence-logic.js';
 
@@ -50,6 +53,13 @@ const TONE_GAIN = 0.2;
 
 const FACE_POSITIONS = ['bottom', 'right', 'left', 'top'];
 
+// Difficulty pacing (kid-friendly): hold the sequence length steady for this
+// many successful repeats before bumping it. Each successful repeat still
+// re-randomizes the sequence via buildSequence() so the player practices all
+// positions, not one memorized pattern.
+const REPEATS_PER_LEVEL = 10;
+const LENGTH_STEP = 1;
+
 // ---------------------------------------------------------------------------
 // DOM
 // ---------------------------------------------------------------------------
@@ -65,6 +75,10 @@ const statusEl = document.getElementById('status');
 // ---------------------------------------------------------------------------
 
 let sequence = [];
+// Round-progress model driving the hold-then-bump difficulty curve. The
+// sequence length stays at progress.length for REPEATS_PER_LEVEL successful
+// repeats; nextRound() bumps it by LENGTH_STEP and resets the counter.
+let progress = { length: 1, repeatsDone: 0 };
 let glyphNode = null;
 const padElementsByPosition = new Map();
 
@@ -135,7 +149,9 @@ function setStatus(text) {
 }
 
 function renderLevel() {
-  if (levelEl) levelEl.textContent = `Level ${sequence.length}`;
+  if (!levelEl) return;
+  const safeDone = Math.min(progress.repeatsDone, REPEATS_PER_LEVEL);
+  levelEl.textContent = `Level ${progress.length} · repeat ${safeDone}/${REPEATS_PER_LEVEL}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -210,13 +226,19 @@ function handlePlayerPress(position) {
 
     inputStep += 1;
     if (inputStep >= sequence.length) {
-      // Round cleared — celebrate briefly, then grow + replay.
+      // Round cleared — celebrate briefly, then advance the hold/bump
+      // progress model and re-randomize the sequence for the next round.
       phase = PHASE_PLAY;
       setStatus('Nice! Get ready…');
       cancelPending();
       pendingTimeout = window.setTimeout(() => {
         pendingTimeout = -1;
-        sequence = extendSequence(sequence);
+        progress = nextRound(progress, {
+          repeatsPerLevel: REPEATS_PER_LEVEL,
+          lengthStep: LENGTH_STEP,
+        });
+        sequence = buildSequence(progress.length);
+        inputStep = 0;
         startNewRound();
       }, REPLAY_DELAY_MS);
     }
@@ -295,5 +317,6 @@ window.addEventListener('beforeunload', cleanup);
 
 buildPads();
 syncBanner();
-sequence = extendSequence(sequence); // start with a single step
+progress = { length: 1, repeatsDone: 0 };
+sequence = buildSequence(1); // start with a single randomized step
 startNewRound();

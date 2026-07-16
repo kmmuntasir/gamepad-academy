@@ -28,6 +28,52 @@ export function extendSequence(seq) {
 }
 
 /**
+ * Build a NEW randomized sequence of exactly `length` face positions.
+ * Each call produces a fresh random sequence (used to re-shuffle every
+ * successful repeat so the player can't just memorize one fixed pattern).
+ *
+ * @param {number} length - desired sequence length (clamped to >= 0)
+ * @returns {string[]} fresh array of face-position strings
+ */
+export function buildSequence(length) {
+  const count = Number.isInteger(length) && length > 0 ? length : 0;
+  const out = [];
+  for (let i = 0; i < count; i += 1) {
+    const pos = FACE_POSITIONS[Math.floor(Math.random() * FACE_POSITIONS.length)];
+    out.push(pos);
+  }
+  return out;
+}
+
+/**
+ * Advance the round-progress model after a successful repeat.
+ *
+ * Holds `length` steady for `repeatsPerLevel` successful repeats; on the
+ * repeat that hits the threshold, bumps `length` by `lengthStep`, resets
+ * `repeatsDone` to 0, and signals `advanced = true`.
+ *
+ * @param {{ length: number, repeatsDone: number }} progress
+ * @param {{ repeatsPerLevel?: number, lengthStep?: number }} [opts]
+ * @returns {{ length: number, repeatsDone: number, advanced: boolean }}
+ */
+export function nextRound(progress, opts = {}) {
+  const repeatsPerLevel = opts.repeatsPerLevel ?? 10;
+  const lengthStep = opts.lengthStep ?? 1;
+  const base = Number.isInteger(progress?.length) && progress.length >= 0
+    ? progress.length
+    : 0;
+  const done = Number.isInteger(progress?.repeatsDone) && progress.repeatsDone >= 0
+    ? progress.repeatsDone
+    : 0;
+
+  const nextDone = done + 1;
+  if (nextDone >= repeatsPerLevel) {
+    return { length: base + lengthStep, repeatsDone: 0, advanced: true };
+  }
+  return { length: base, repeatsDone: nextDone, advanced: false };
+}
+
+/**
  * Return the position expected at `step` in `seq`, or null if out of range.
  *
  * @param {string[]} seq
