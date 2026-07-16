@@ -9,6 +9,7 @@ import {
   KEY_TO_EVENT,
   TRIGGER_LEFT,
   TRIGGER_RIGHT,
+  STICK_LEFT,
   LAYOUT_CHANGE,
   AVAILABILITY,
 } from './button-mapping.js';
@@ -19,6 +20,9 @@ const LEFT_TRIGGER_INDEX = 6;
 const RIGHT_TRIGGER_INDEX = 7;
 const LEFT_STICK_AXES = [0, 1];
 const RIGHT_STICK_AXES = [2, 3];
+
+// Arrow codes whose held state synthesizes a left-stick vector.
+const KEYBOARD_STICK_CODES = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 
 /**
  * Centralized, layout-agnostic gamepad input engine.
@@ -43,6 +47,9 @@ class GamepadManager {
     this.id = '';
     this.mapping = '';
     this.prev = { buttons: [], axes: [] };
+
+    // Held Arrow keys used to synthesize `gamepad-stick-left` events.
+    this._heldKeys = new Set();
 
     this.rafId = null;
     this.resumed = false;
@@ -94,6 +101,7 @@ class GamepadManager {
     window.removeEventListener('gamepadconnected', this._onConnect);
     window.removeEventListener('gamepaddisconnected', this._onDisconnect);
     this.prev = { buttons: [], axes: [] };
+    this._heldKeys.clear();
     this.activeIndex = null;
     this.target = null;
   }
@@ -105,6 +113,37 @@ class GamepadManager {
   /** Current detected layout: 'xbox' | 'playstation' | 'switch'. */
   getLayout() {
     return this.layout;
+  }
+
+  /**
+   * Live snapshot of the active gamepad (same source `_poll` uses), or null
+   * when no pad is connected. Centralizes `navigator.getGamepads()` access.
+   */
+  _activePad() {
+    if (this.activeIndex == null) return null;
+    const getGamepads = navigator.getGamepads?.bind(navigator);
+    if (typeof getGamepads !== 'function') return null;
+    let pads;
+    try {
+      pads = getGamepads() || [];
+    } catch (error) {
+      return null;
+    }
+    return pads[this.activeIndex] || null;
+  }
+
+  /** Live analog value of the left trigger (L2 / LT / ZL), 0..1; 0 when no pad. */
+  getLeftTrigger() {
+    const pad = this._activePad();
+    const t = pad && pad.buttons[LEFT_TRIGGER_INDEX];
+    return t && typeof t.value === 'number' ? t.value : 0;
+  }
+
+  /** Live analog value of the right trigger (R2 / RT / ZR), 0..1; 0 when no pad. */
+  getRightTrigger() {
+    const pad = this._activePad();
+    const t = pad && pad.buttons[RIGHT_TRIGGER_INDEX];
+    return t && typeof t.value === 'number' ? t.value : 0;
   }
 
   /** True when a gamepad is connected and active. */
@@ -157,6 +196,31 @@ class GamepadManager {
       buttons: Array.from(buttons, (b) => b && (b.pressed || b.touched || b.value > 0)),
       axes: Array.from(axes),
     };
+
+    // Keyboard stick emulation: synthesize a left-stick vector from held Arrow
+    // keys. Real gamepad wins — skip when the active pad's left stick is above
+    // deadzone to avoid double events.
+    this._emitKeyboardStick(axes);
+  }
+
+  /**
+   * Synthesize `gamepad-stick-left` from held Arrow keys. Skipped entirely when
+   * the real gamepad's left stick is above `deadzone` (real input wins).
+   */
+  _emitKeyboardStick(axes) {
+    if (this._heldKeys.size === 0) return;
+    // Real left stick above deadzone → let the gamepad own this frame.
+    const rx = Number(axes[LEFT_STICK_AXES[0]]) || 0;
+    const ry = Number(axes[LEFT_STICK_AXES[1]]) || 0;
+    if (Math.hypot(rx, ry) >= this.deadzone) return;
+
+    const x = (this._heldKeys.has('ArrowRight') ? 1 : 0) -
+      (this._heldKeys.has('ArrowLeft') ? 1 : 0);
+    // W3C sign convention: up = negative y (matches `_emitStick`).
+    const y = (this._heldKeys.has('ArrowDown') ? 1 : 0) -
+      (this._heldKeys.has('ArrowUp') ? 1 : 0);
+    if (Math.hypot(x, y) < this.deadzone) return;
+    this._emitStick([x, y], [0, 1], STICK_LEFT);
   }
 
   _diffButtons(buttons) {
@@ -259,6 +323,7 @@ class GamepadManager {
 
   _onKeyDown(event) {
     this._resumeAudioOnce();
+    if (KEYBOARD_STICK_CODES.has(event.code)) this._heldKeys.add(event.code);
     if (event.repeat) return; // no double-firing
     const entries = KEY_TO_EVENT[event.code];
     if (!entries) return;
@@ -268,6 +333,7 @@ class GamepadManager {
   }
 
   _onKeyUp(event) {
+    if (KEYBOARD_STICK_CODES.has(event.code)) this._heldKeys.delete(event.code);
     const entries = KEY_TO_EVENT[event.code];
     if (!entries) return;
     for (const { name, detail } of entries) {
