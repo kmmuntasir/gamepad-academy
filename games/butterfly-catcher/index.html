@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Butterfly Catcher — Gamepad Academy</title>
+    <link rel="stylesheet" href="../../shared/styles.css" />
+    <style>
+      /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      .bc-stage {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        align-items: stretch;
+      }
+      .bc-hud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3) var(--space-5);
+        align-items: center;
+        justify-content: space-between;
+      }
+      .bc-instructions {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: var(--fs-md);
+      }
+      .bc-instructions strong {
+        color: var(--c-primary);
+      }
+      .bc-mode-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: var(--space-1) var(--space-4);
+        border-radius: var(--radius-pill);
+        font-weight: 800;
+        font-size: var(--fs-sm);
+        letter-spacing: 0.04em;
+        background-color: var(--c-surface);
+        border: 2px solid var(--c-muted);
+        color: var(--c-text);
+      }
+      .bc-mode-badge[data-mode='tiptoe'] {
+        background-color: #4ecdc4;
+        color: #062b29;
+        border-color: #4ecdc4;
+      }
+      .bc-mode-badge[data-mode='walk'] {
+        background-color: #ffd23f;
+        color: #1a1200;
+        border-color: #ffd23f;
+      }
+      .bc-mode-badge[data-mode='run'] {
+        background-color: #ff6b6b;
+        color: #2a0707;
+        border-color: #ff6b6b;
+      }
+      .bc-count {
+        font-size: var(--fs-md);
+        color: var(--c-text);
+      }
+      .bc-count strong {
+        color: var(--c-success);
+        font-size: var(--fs-lg);
+      }
+      .bc-canvas-wrap {
+        position: relative;
+        width: 100%;
+        height: min(62vh, 560px);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-md);
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        background: #5fb84e;
+      }
+      #game-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="back-home-row">
+      <a class="back-home" href="../../index.html">&larr; Back to Home</a>
+    </div>
+
+    <main class="page bc-stage">
+      <h1 class="page__title">Butterfly Catcher</h1>
+
+      <div class="gamepad-banner" role="status" aria-live="polite">
+        <span class="gamepad-banner__dot" aria-hidden="true"></span>
+        <span id="banner-text">No controller — use the keyboard (WASD / Arrows = left stick).</span>
+      </div>
+
+      <p class="bc-instructions">
+        <strong>Tiptoe</strong> (gentle tilt) to catch butterflies.
+        <strong>Run</strong> (full tilt) and they fly away!
+      </p>
+
+      <div class="bc-hud">
+        <span class="bc-mode-badge" id="mode-badge" data-mode="tiptoe">TIPTOE</span>
+        <span class="bc-count">Caught: <strong id="catch-count">0</strong></span>
+      </div>
+
+      <div class="bc-canvas-wrap">
+        <canvas id="game-canvas" aria-label="Butterfly catcher field"></canvas>
+      </div>
+    </main>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
