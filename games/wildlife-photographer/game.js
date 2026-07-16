@@ -20,9 +20,10 @@ import {
   shoulderLabel,
 } from '../../shared/button-mapping.js';
 import {
-  panCamera,
+  panCameraInertial,
   isInReticle,
   addPhoto,
+  boundsFor,
   DEFAULT_PAN_SPEED,
   DEFAULT_RETICLE_RADIUS,
 } from './camera-logic.js';
@@ -32,13 +33,18 @@ import {
 // ---------------------------------------------------------------------------
 
 // World is WIDER than the viewport so panning has somewhere to go. Height is
-// also larger than the viewport for vertical pan headroom.
-const WORLD_WIDTH = 2400;
-const WORLD_HEIGHT = 900;
+// also larger than the viewport for vertical pan headroom. Sized so EVERY
+// animal's (x, y) sits within the reachable envelope [vw/2, w - vw/2] ×
+// [vh/2, h - vh/2] for a typical 800×540 viewport.
+export const WORLD_WIDTH = 3600;
+export const WORLD_HEIGHT = 1400;
 
 // Pan tuning. The pure module scales movement by stick * panSpeed * dt; we feed
-// it the live axis each frame.
+// it the live axis each frame. Inertia (accel toward the stick-driven target +
+// friction on release) makes the camera glide to a stop instead of freezing.
 const PAN_SPEED = DEFAULT_PAN_SPEED;
+const PAN_ACCEL = 8.0; // how fast velocity ramps toward target (per second)
+const PAN_FRICTION = 0.12; // retained-per-second on release → ~88% lost/sec
 // dt clamp so a backgrounded tab doesn't tunnel the camera across the world.
 const DT_CLAMP = 1 / 30;
 
@@ -63,16 +69,20 @@ const STICK_KEY_CODES = Object.freeze({
 
 // Animals to populate the panorama. Static world coords + emoji + name.
 // `id` is the dedupe key so each animal appears in the scrapbook once.
-const ANIMAL_DEFS = Object.freeze([
-  { id: 'fox', emoji: '🦊', name: 'Fox', x: 240, y: 640 },
-  { id: 'deer', emoji: '🦌', name: 'Deer', x: 560, y: 600 },
-  { id: 'owl', emoji: '🦉', name: 'Owl', x: 880, y: 360 },
-  { id: 'rabbit', emoji: '🐰', name: 'Rabbit', x: 1180, y: 700 },
-  { id: 'bear', emoji: '🐻', name: 'Bear', x: 1480, y: 660 },
-  { id: 'bird', emoji: '🐦', name: 'Bird', x: 1780, y: 320 },
-  { id: 'hedgehog', emoji: '🦔', name: 'Hedgehog', x: 2050, y: 740 },
-  { id: 'butterfly', emoji: '🦋', name: 'Butterfly', x: 700, y: 240 },
-  { id: 'squirrel', emoji: '🐿️', name: 'Squirrel', x: 1300, y: 420 },
+// Every (x, y) is kept inside the reachable envelope for a typical 800×540
+// viewport against WORLD_WIDTH × WORLD_HEIGHT so the center crosshair can
+// pan onto each one. See `animalReachable` in camera-logic.js.
+// Exported so tests/camera-logic.test.js can assert every animal is reachable.
+export const ANIMAL_DEFS = Object.freeze([
+  { id: 'fox', emoji: '🦊', name: 'Fox', x: 540, y: 1080 },
+  { id: 'deer', emoji: '🦌', name: 'Deer', x: 860, y: 1040 },
+  { id: 'owl', emoji: '🦉', name: 'Owl', x: 1180, y: 560 },
+  { id: 'rabbit', emoji: '🐰', name: 'Rabbit', x: 1480, y: 1120 },
+  { id: 'bear', emoji: '🐻', name: 'Bear', x: 1780, y: 1080 },
+  { id: 'bird', emoji: '🐦', name: 'Bird', x: 2080, y: 460 },
+  { id: 'hedgehog', emoji: '🦔', name: 'Hedgehog', x: 2360, y: 1120 },
+  { id: 'butterfly', emoji: '🦋', name: 'Butterfly', x: 1020, y: 420 },
+  { id: 'squirrel', emoji: '🐿️', name: 'Squirrel', x: 2680, y: 680 },
 ]);
 
 // Visual palette (Canvas fill styles — inline style exception per rules).
@@ -124,6 +134,9 @@ let viewH = 0;
 
 // Camera offset = world-coord of the viewport's top-left corner.
 const offset = { x: 0, y: 0 };
+// Camera velocity (px/sec) for inertial panning. Decays on release via
+// panCameraInertial so the camera glides to a stop.
+const velocity = { x: 0, y: 0 };
 
 // Snapshot of animals in WORLD space. Static (they never move).
 const animals = ANIMAL_DEFS.map((a) => ({ ...a, captured: false }));
@@ -157,12 +170,12 @@ let glyphNode = null;
 // ---------------------------------------------------------------------------
 
 function currentBounds() {
-  // The camera offset's max is world-size minus viewport-size, so the viewport
-  // stops flush with the world edge. If the viewport is larger than the world
-  // (small window), max < min → we clamp to the world origin instead.
-  const maxX = Math.max(0, WORLD_WIDTH - viewW);
-  const maxY = Math.max(0, WORLD_HEIGHT - viewH);
-  return { minX: 0, maxX, minY: 0, maxY };
+  // Delegated to the pure `boundsFor` helper so the engine and tests share one
+  // source of truth for the camera envelope.
+  return boundsFor(
+    { w: WORLD_WIDTH, h: WORLD_HEIGHT },
+    { w: viewW, h: viewH },
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -180,10 +193,13 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   // Re-clamp the camera into the new bounds so the world edge never shows
-  // empty space beyond the panorama.
+  // empty space beyond the panorama. Zero velocity so a stale pan speed
+  // doesn't push against the new edge for a frame.
   const b = currentBounds();
   offset.x = clamp(offset.x, b.minX, b.maxX);
   offset.y = clamp(offset.y, b.minY, b.maxY);
+  velocity.x = 0;
+  velocity.y = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -290,16 +306,21 @@ function updateLabels() {
 // ---------------------------------------------------------------------------
 
 function update(dt) {
-  // Pan the camera via the pure module. Clamp dt so a stalled tab can't fling.
+  // Pan the camera via the pure inertial helper. Clamp dt so a stalled tab
+  // can't fling. The helper returns new { offset, velocity } objects and never
+  // mutates these module locals — reassign both each frame.
   const b = currentBounds();
-  const next = panCamera(
+  const r = panCameraInertial(
     { x: stickX, y: stickY },
     offset,
+    velocity,
     b,
-    { panSpeed: PAN_SPEED, dt },
+    { panSpeed: PAN_SPEED, accel: PAN_ACCEL, friction: PAN_FRICTION, dt },
   );
-  offset.x = next.x;
-  offset.y = next.y;
+  offset.x = r.offset.x;
+  offset.y = r.offset.y;
+  velocity.x = r.velocity.x;
+  velocity.y = r.velocity.y;
 
   // Recompute the aimed animal: first (by definition order) animal currently
   // under the center reticle. isInReticle handles the screen-space conversion.
@@ -348,14 +369,14 @@ function drawHills() {
   // Far rolling hills (parallax-lite: anchored in world space).
   ctx.fillStyle = COLOR_HILLS_FAR;
   ctx.beginPath();
-  const farY = 480;
+  const farY = 720;
   ctx.moveTo(worldToScreenX(0), worldToScreenY(farY));
   // A handful of arcs across the world width.
-  const step = 240;
+  const step = 300;
   for (let wx = 0; wx <= WORLD_WIDTH; wx += step) {
     ctx.quadraticCurveTo(
       worldToScreenX(wx + step / 2),
-      worldToScreenY(farY - 60),
+      worldToScreenY(farY - 80),
       worldToScreenX(wx + step),
       worldToScreenY(farY),
     );
@@ -368,12 +389,12 @@ function drawHills() {
   // Near hills, lower and darker.
   ctx.fillStyle = COLOR_HILLS_NEAR;
   ctx.beginPath();
-  const nearY = 620;
+  const nearY = 960;
   ctx.moveTo(worldToScreenX(0), worldToScreenY(nearY));
   for (let wx = 0; wx <= WORLD_WIDTH; wx += step) {
     ctx.quadraticCurveTo(
       worldToScreenX(wx + step / 2),
-      worldToScreenY(nearY - 50),
+      worldToScreenY(nearY - 60),
       worldToScreenX(wx + step),
       worldToScreenY(nearY),
     );
@@ -389,9 +410,9 @@ function drawGround() {
   ctx.fillStyle = COLOR_GROUND;
   ctx.fillRect(
     worldToScreenX(0),
-    worldToScreenY(760),
+    worldToScreenY(1180),
     WORLD_WIDTH,
-    WORLD_HEIGHT - 760,
+    WORLD_HEIGHT - 1180,
   );
 }
 
@@ -413,9 +434,9 @@ function drawTree(wx, wy) {
 function drawTrees() {
   // A sprinkling of trees across the world at fixed positions (no per-frame RNG).
   const trees = [
-    [120, 760], [400, 770], [720, 760], [1040, 770], [1360, 760],
-    [1620, 770], [1900, 760], [2200, 770], [260, 740], [940, 740],
-    [1240, 740], [1580, 740], [1860, 740], [2140, 740],
+    [180, 1180], [600, 1190], [1080, 1180], [1560, 1190], [2040, 1180],
+    [2520, 1190], [3000, 1180], [3420, 1190], [390, 1160], [1410, 1160],
+    [1860, 1160], [2280, 1160], [2790, 1160], [3210, 1160],
   ];
   for (const [wx, wy] of trees) drawTree(wx, wy);
 }
