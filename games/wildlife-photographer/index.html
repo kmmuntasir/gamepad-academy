@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wildlife Photographer — Gamepad Academy</title>
+    <link rel="stylesheet" href="../../shared/styles.css" />
+    <style>
+      /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      .photo-stage {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        align-items: stretch;
+      }
+      .photo-instructions {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: var(--fs-md);
+      }
+      .photo-instructions strong {
+        color: var(--c-primary);
+      }
+      .photo-layout {
+        display: grid;
+        grid-template-columns: 1fr minmax(180px, 240px);
+        gap: var(--space-4);
+        align-items: stretch;
+      }
+      @media (max-width: 760px) {
+        .photo-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+      #photo-canvas {
+        width: 100%;
+        height: min(60vh, 540px);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        background-color: #9ed0f0;
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        touch-action: none;
+      }
+      .scrapbook {
+        background-color: var(--c-surface);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: var(--radius-lg);
+        padding: var(--space-4);
+        box-shadow: var(--shadow-sm);
+        min-height: 200px;
+      }
+      .scrapbook__title {
+        font-size: var(--fs-lg);
+        color: var(--c-primary);
+        margin-bottom: var(--space-2);
+      }
+      .scrapbook__count {
+        color: var(--c-muted);
+        font-size: var(--fs-sm);
+        margin-bottom: var(--space-3);
+      }
+      .scrapbook__count strong {
+        color: var(--c-success);
+      }
+      .scrapbook__list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+        gap: var(--space-2);
+      }
+      .scrapbook__thumb {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        aspect-ratio: 1 / 1;
+        border-radius: var(--radius-md);
+        background-color: var(--c-surface-raised);
+        border: 2px solid rgba(255, 255, 255, 0.08);
+        transition:
+          background-color var(--transition-fast),
+          border-color var(--transition-fast);
+      }
+      .scrapbook__thumb.is-captured {
+        background-color: rgba(123, 237, 159, 0.18);
+        border-color: var(--c-success);
+      }
+      .scrapbook__emoji {
+        font-size: 1.75rem;
+        line-height: 1;
+      }
+      .prompt-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: var(--space-3);
+        min-height: 32px;
+      }
+      .prompt-row__label {
+        font-size: var(--fs-md);
+        color: var(--c-text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="back-home-row">
+      <a class="back-home" href="../../index.html">&larr; Back to Home</a>
+    </div>
+
+    <main class="page photo-stage">
+      <h1 class="page__title">Wildlife Photographer</h1>
+
+      <div class="gamepad-banner" role="status" aria-live="polite">
+        <span class="gamepad-banner__dot" aria-hidden="true"></span>
+        <span id="banner-text">No controller — use IJKL to aim, Space / E to snap.</span>
+      </div>
+
+      <p class="photo-instructions">
+        Pan with the <strong>right stick</strong> to sweep the camera across the forest.
+        Center the red reticle over an animal, then squeeze
+        <strong id="trigger-label">RT</strong> or tap <strong id="bumper-label">RB</strong>
+        to snap a photo into your scrapbook.
+      </p>
+
+      <div class="prompt-row">
+        <span class="prompt-row__label" id="prompt-label">Pan the right stick to find animals…</span>
+        <span id="prompt-glyph" aria-hidden="true"></span>
+      </div>
+
+      <div class="photo-layout">
+        <canvas id="photo-canvas" aria-label="Forest panorama viewfinder"></canvas>
+
+        <aside class="scrapbook" aria-label="Photo scrapbook">
+          <h2 class="scrapbook__title">Scrapbook</h2>
+          <p class="scrapbook__count">
+            Captured: <strong id="scrapbook-count">0</strong>
+          </p>
+          <ul class="scrapbook__list" id="scrapbook-list"></ul>
+        </aside>
+      </div>
+    </main>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
