@@ -1,0 +1,41 @@
+# Deploys the static site (repo root — no build step) to Cloudflare Pages.
+#
+# One-time setup:
+#   1. Create the Pages project (production branch = main):
+#        npx wrangler pages project create gamepad-academy --production-branch=main
+#      …or create it in the Cloudflare dashboard.
+#   2. Add repository secrets (Settings → Secrets and variables → Actions):
+#        CLOUDFLARE_API_TOKEN   — API token scoped to "Account · Cloudflare Pages · Edit"
+#        CLOUDFLARE_ACCOUNT_ID  — your Cloudflare account ID (dashboard home, right sidebar)
+#
+# `--project-name` below MUST match the project name from step 1.
+
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # `.` → the repo root IS the static site (no build step).
+          # `--branch` drives production (main) vs. preview deploys.
+          command: pages deploy . --project-name=gamepad-academy --branch=${{ github.ref_name }}
