@@ -4,21 +4,27 @@ A collection of zero-dependency, zero-stress HTML5 mini-games that help kids bui
 
 ## Run
 
-Open `index.html` in a modern browser (Chrome, Edge, or Firefox). Because the code uses ES module `import`s, `file://` may be blocked by CORS — if so, serve the repo over HTTP:
+**Don't open `index.html` directly (double-click).** The game code uses ES module `import`s, which browsers block on the `file://` origin — opening the file directly means inputs (gamepad **and** keyboard) silently do nothing. Serve it over HTTP instead:
 
 ```bash
-python -m http.server
-# then open the printed URL (e.g. http://localhost:8000/)
+node serve.js
+# → open http://localhost:8000/   (custom port: `node serve.js 5173`)
 ```
 
-A gamepad must be connected (and a button pressed once to wake it) for full functionality. A keyboard fallback (WASD/Arrow keys) is included for testing without a controller.
+`serve.js` is a tiny zero-dependency Node script (no `package.json`, nothing to install). No Node handy? Fall back to Python:
+
+```bash
+python -m http.server   # then open the printed URL
+```
+
+A gamepad must be connected (press any button once to wake it — the browser only exposes the controller after that first press) for full functionality. A keyboard fallback (WASD = face buttons, Arrows = D-Pad, Q/E = bumpers, Shift/Space = triggers, C/V = stick clicks) is included for testing without a controller.
 
 ## Tests
 
-Open `tests/index.html` in a browser — serve over HTTP (module CORS blocks `file://`):
+Serve over HTTP (module CORS blocks `file://`), then open the test page:
 
 ```bash
-python -m http.server
+node serve.js
 # open http://localhost:8000/tests/index.html
 ```
 
