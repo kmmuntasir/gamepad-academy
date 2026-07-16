@@ -9,7 +9,6 @@
 // `gamepad-*` events on `window` — never calls navigator.getGamepads().
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
-import { createFaceGlyph } from '../../shared/glyph.js';
 import { playBlip } from '../../shared/utils.js';
 import {
   FACE_BOTTOM,
@@ -17,6 +16,7 @@ import {
   FACE_LEFT,
   FACE_TOP,
   LAYOUT_CHANGE,
+  AVAILABILITY,
 } from '../../shared/button-mapping.js';
 import {
   createFood,
@@ -85,7 +85,7 @@ function resizeCanvas() {
 
 const monster = { x: 0, y: 0 };
 
-/** @type {{position:string,x:number,y:number,speed:number,eaten:boolean,glyph:HTMLElement,eatenAt:number}[]} */
+/** @type {{position:string,x:number,y:number,speed:number,eaten:boolean,spawnEdge:string,eatenAt:number}[]} */
 let foods = [];
 let munchPulses = []; // { x, y, startedAt }
 let yumCount = 0;
@@ -96,7 +96,7 @@ let nextSpawnAt = 0;
 let running = false;
 
 // ---------------------------------------------------------------------------
-// Layout / glyph management
+// Layout management
 // ---------------------------------------------------------------------------
 
 let currentLayout = gamepadManager.getLayout();
@@ -105,33 +105,23 @@ function layoutKey() {
   return gamepadManager.getLayout() || 'xbox';
 }
 
-/**
- * Build a small glyph badge shown on a food item, highlighting that food's
- * required position. Re-rendered on layout change via refreshGlyphs().
- */
-function buildFoodGlyph(position) {
-  return createFaceGlyph({
-    layout: currentLayout,
-    position,
-    active: true,
-  });
-}
-
-function refreshGlyphs() {
-  foods.forEach((f) => {
-    if (!f.glyph) return;
-    const fresh = buildFoodGlyph(f.position);
-    f.glyph.replaceWith(fresh);
-    f.glyph = fresh;
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Spawning
 // ---------------------------------------------------------------------------
 
 function scheduleNextSpawn(now) {
   nextSpawnAt = now + SPAWN_INTERVAL_MS + (Math.random() * SPAWN_JITTER_MS);
+}
+
+// Detect which canvas edge a freshly-spawned food entered from, based on its
+// initial off-canvas position (feeder-logic.js places the origin ~EDGE_MARGIN
+// past one of the four edges). Used by the despawn check so food is only
+// recycled after it has crossed PAST the monster to the opposite edge.
+function detectSpawnEdge(food) {
+  if (food.y < 0) return 'top';
+  if (food.y > cssHeight) return 'bottom';
+  if (food.x < 0) return 'left';
+  return 'right';
 }
 
 function spawnFood(now) {
@@ -143,7 +133,7 @@ function spawnFood(now) {
   const base = createFood({ width: cssWidth, height: cssHeight });
   foods.push({
     ...base,
-    glyph: buildFoodGlyph(base.position),
+    spawnEdge: detectSpawnEdge(base),
     eatenAt: 0,
   });
   scheduleNextSpawn(now);
@@ -207,15 +197,20 @@ function update(dt, now) {
     f.x = next.x;
     f.y = next.y;
 
-    // Recycle food that has drifted well past the monster (missed).
+    // Recycle food that has crossed PAST the monster to the opposite edge.
+    // Side-aware: only cull when the food is off-canvas on the edge OPPOSITE
+    // its spawnEdge — i.e. it actually traveled across the play field. This
+    // avoids the prior bug where every food was culled on the spawn frame
+    // because its distance to the centered monster already exceeded the
+    // despawn threshold while it sat just off its entry edge.
     const overshoot = Math.hypot(f.x - monster.x, f.y - monster.y);
-    const offCanvas =
-      f.x < -FOOD_RADIUS ||
-      f.x > cssWidth + FOOD_RADIUS ||
-      f.y < -FOOD_RADIUS ||
-      f.y > cssHeight + FOOD_RADIUS;
-    if (overshoot > EAT_RADIUS + DESPAWN_PAST_MONSTER && offCanvas) {
-      continue; // drop it
+    const offOpposite =
+      (f.spawnEdge === 'top' && f.y > cssHeight + FOOD_RADIUS) ||
+      (f.spawnEdge === 'bottom' && f.y < -FOOD_RADIUS) ||
+      (f.spawnEdge === 'left' && f.x > cssWidth + FOOD_RADIUS) ||
+      (f.spawnEdge === 'right' && f.x < -FOOD_RADIUS);
+    if (offOpposite && overshoot > EAT_RADIUS + DESPAWN_PAST_MONSTER) {
+      continue; // drop it — crossed past the monster to the far side
     }
     keep.push(f);
   }
@@ -282,8 +277,6 @@ function drawMonster(now) {
 }
 
 function drawFood(f, now) {
-  if (!f.glyph) return;
-
   // Eaten foods shrink + fade as the munch plays.
   let scale = 1;
   let alpha = 1;
@@ -293,12 +286,9 @@ function drawFood(f, now) {
     alpha = 1 - t;
   }
 
-  // Position the glyph via the canvas overlay: we use a foreignObject-like
-  // trick by toggling CSS — but canvas can't host DOM. Instead, we render
-  // the glyph badge INTO the canvas as a simple colored disc + letter, and
-  // ALSO keep the live DOM glyph mounted off-canvas as the accessible label
-  // (so layout changes re-label without us redrawing text manually).
-  // For visual fidelity we draw the disc + position letter here.
+  // Render the cookie + prompt badge directly to the canvas (no DOM glyph).
+  // The layout-correct single-letter label is computed from the current
+  // detected layout so it always matches the physical pad.
   const label = positionLetter(f.position);
 
   ctx.save();
@@ -429,7 +419,6 @@ function onFaceTop() { tryEat('top'); }
 
 function onLayoutChange() {
   currentLayout = layoutKey();
-  refreshGlyphs();
   syncBanner();
 }
 
@@ -443,7 +432,7 @@ const LISTENERS = [
   [FACE_LEFT, onFaceLeft],
   [FACE_TOP, onFaceTop],
   [LAYOUT_CHANGE, onLayoutChange],
-  ['gamepad-availability', onAvailability],
+  [AVAILABILITY, onAvailability],
 ];
 
 LISTENERS.forEach(([name, handler]) => window.addEventListener(name, handler));
