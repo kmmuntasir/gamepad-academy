@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simon Says — Gamepad Academy</title>
+    <link rel="stylesheet" href="../../shared/styles.css" />
+    <style>
+      /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      .simon-stage {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-5);
+        align-items: center;
+      }
+      .simon-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        gap: var(--space-4);
+        flex-wrap: wrap;
+      }
+      .simon-header__level {
+        font-size: var(--fs-lg);
+        font-weight: 700;
+        color: var(--c-accent);
+      }
+      .simon-instructions {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: var(--fs-md);
+        max-width: 46ch;
+      }
+      .simon-instructions strong {
+        color: var(--c-primary);
+      }
+      #status {
+        min-height: 1.5em;
+        text-align: center;
+        font-size: var(--fs-lg);
+        font-weight: 700;
+        color: var(--c-primary);
+      }
+      #pad-host {
+        /* Enlarge the 80x80 face-glyph into a big, tappable diamond. */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: var(--space-4);
+      }
+      #pad-host .face-glyph {
+        width: min(60vw, 360px);
+        height: min(60vw, 360px);
+      }
+      #pad-host .face-glyph__pad {
+        width: 28%;
+        height: 28%;
+        font-size: clamp(1.25rem, 4vw, 2rem);
+        border-width: 4px;
+        cursor: pointer;
+      }
+      /* Lit (active) pad during playback or a correct press. */
+      #pad-host .face-glyph__pad.pad--lit {
+        background-color: var(--c-accent);
+        border-color: var(--c-accent);
+        box-shadow: 0 0 24px 6px rgba(78, 205, 196, 0.6);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #pad-host .face-glyph__pad {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="back-home-row">
+      <a class="back-home" href="../../index.html">← Back to Home</a>
+    </div>
+
+    <main class="page simon-stage">
+      <div class="simon-header">
+        <h1 class="page__title">Simon Says</h1>
+        <span class="simon-header__level" id="level">Level 1</span>
+      </div>
+
+      <div class="gamepad-banner" role="status" aria-live="polite">
+        <span class="gamepad-banner__dot" aria-hidden="true"></span>
+        <span id="banner-text">No controller — use the keyboard (WASD = face buttons).</span>
+      </div>
+
+      <p class="simon-instructions">
+        Watch the pads light up, then press the <strong>same face buttons</strong>
+        to copy the pattern. Each round adds one more — see how long you can go!
+        Wrong presses just don't count; there's no game over.
+      </p>
+
+      <div id="status" role="status" aria-live="polite">Watch the pattern…</div>
+
+      <div id="pad-host" aria-label="Face-button pads"></div>
+    </main>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
