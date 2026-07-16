@@ -1,0 +1,967 @@
+/*
+ * gamepad-academy — retro 80's console-launcher theme (homepage overlay)
+ * Zero-dependency plain CSS. Loaded IN ADDITION TO shared/styles.css.
+ * Inspired by Batocera "Alekfull-NX": dark synthwave bg, CRT scanlines,
+ * neon/phosphor glow, focused-card highlight, footer status bar legend.
+ *
+ * Scope: only ADDS / overrides homepage-specific theme classes. The base
+ * reset, tokens, .card, .gamepad-banner, .face-glyph, .back-home from
+ * shared/styles.css remain in effect; this file layers the retro look on top.
+ *
+ * Toggle hooks (body classes):
+ *   body.no-crt        → hide the .crt scanline overlay
+ *   body.reduce-motion → drop card-focus scale + all animations
+ *   @media (prefers-reduced-motion: reduce) does the same automatically.
+ */
+
+/* ---------------------------------------------------------------------------
+ * 1. Arcade font (local woff2 only — no external URLs)
+ * ------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('../assets/fonts/press-start-2p.woff2') format('woff2');
+  font-display: swap;
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* ---------------------------------------------------------------------------
+ * 2. Retro design tokens (synthwave over deep indigo)
+ * ------------------------------------------------------------------------- */
+
+:root {
+  /* Neon palette layered on top of the base tokens. */
+  --retro-magenta: #ff2e88;
+  --retro-cyan: #00f0ff;
+  --retro-purple: #7b2ff7;
+  --retro-yellow: #ffd23f; /* mirrors --c-primary for warm accents */
+  --retro-green: #7bed9f;
+
+  /* Deep indigo background tiers. */
+  --retro-bg-0: #0a0a1f; /* near-black indigo */
+  --retro-bg-1: #13123a; /* mid indigo */
+  --retro-bg-2: #1b0b3a; /* purple indigo */
+
+  /* Dim "inactive phosphor" tone for idle controller parts. */
+  --retro-dim: #2a3566;
+  --retro-dim-ink: #6f7bb0;
+
+  /* Neon glow shadows (reused everywhere). */
+  --retro-glow-cyan: 0 0 8px rgba(0, 240, 255, 0.7), 0 0 18px rgba(0, 240, 255, 0.45);
+  --retro-glow-magenta: 0 0 8px rgba(255, 46, 136, 0.7), 0 0 18px rgba(255, 46, 136, 0.45);
+  --retro-glow-purple: 0 0 8px rgba(123, 47, 247, 0.7), 0 0 18px rgba(123, 47, 247, 0.45);
+
+  /* Arcade font stack — always paired with a monospace fallback. */
+  --font-arcade: 'Press Start 2P', ui-monospace, 'Courier New', monospace;
+}
+
+/* ---------------------------------------------------------------------------
+ * 3. Homepage shell — synthwave background + perspective grid floor
+ *    Applied via .retro-shell on <body> or a top-level wrapper so non-home
+ *    pages stay unaffected. Gradients only — no images.
+ * ------------------------------------------------------------------------- */
+
+.retro-shell {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  color: var(--c-text);
+  background-color: var(--retro-bg-0);
+  background-image:
+    /* Top-down darkening vignette. */
+    radial-gradient(ellipse at 50% 0%, rgba(123, 47, 247, 0.25), transparent 60%),
+    /* Horizon glow (where the grid floor meets the sky). */
+    radial-gradient(ellipse at 50% 78%, rgba(255, 46, 136, 0.22), transparent 55%),
+    /* Base vertical gradient: indigo sky → deep purple-black floor. */
+    linear-gradient(180deg, var(--retro-bg-0) 0%, var(--retro-bg-1) 45%, var(--retro-bg-2) 78%, #06061a 100%);
+  background-attachment: fixed;
+  /* Reserve room for the fixed .status-bar so cards never hide under it. */
+  padding-bottom: 96px;
+}
+
+/* Perspective synthwave grid floor — pure CSS, sits behind content.
+   Two pseudo layers (horizontal + vertical lines) converge to a vanishing
+   point near 78% viewport height, faking a 3D plane. */
+.retro-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    /* Receding horizontal lines (brighten near horizon). */
+    linear-gradient(rgba(0, 240, 255, 0.28) 1px, transparent 1px),
+    /* Converging vertical lines (thin magenta). */
+    linear-gradient(90deg, rgba(255, 46, 136, 0.22) 1px, transparent 1px);
+  background-size: 100% 40px, 40px 100%;
+  background-position: 50% 78%;
+  /* Perspective: scale the grid so the bottom rows are wider than top rows. */
+  transform: perspective(420px) rotateX(62deg) scale(1.6);
+  transform-origin: 50% 78%;
+  /* Mask so the grid fades out above the horizon and at the very bottom. */
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 60%,
+    rgba(0, 0, 0, 0.65) 72%,
+    rgba(0, 0, 0, 0.35) 92%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    transparent 60%,
+    rgba(0, 0, 0, 0.65) 72%,
+    rgba(0, 0, 0, 0.35) 92%,
+    transparent 100%
+  );
+  opacity: 0.6;
+  animation: retro-grid-scroll 6s linear infinite;
+}
+
+@keyframes retro-grid-scroll {
+  from {
+    background-position: 50% 78%, 0 0;
+  }
+  to {
+    background-position: 50% 78%, 0 40px;
+  }
+}
+
+/* Ensure page content sits above the fixed grid layer. */
+.retro-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------------------------------------------------------------------------
+ * 4. CRT scanline overlay (.crt) — toggle via body.no-crt
+ * ------------------------------------------------------------------------- */
+
+.crt {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  /* Faint horizontal scanlines. */
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.28) 0px,
+    rgba(0, 0, 0, 0.28) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  /* Soft vignette darkens the corners like a curved CRT. */
+  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.7);
+  mix-blend-mode: multiply;
+  animation: crt-flicker 5s infinite steps(60);
+}
+
+@keyframes crt-flicker {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  48% {
+    opacity: 0.86;
+  }
+  50% {
+    opacity: 0.94;
+  }
+  52% {
+    opacity: 0.85;
+  }
+}
+
+/* Toggle hook: add .no-crt to <body> to disable the overlay entirely. */
+body.no-crt .crt {
+  display: none;
+}
+
+/* Reduced-motion: stop the CRT flicker + grid scroll. */
+@media (prefers-reduced-motion: reduce) {
+  .crt,
+  .retro-shell::before {
+    animation: none !important;
+  }
+}
+
+body.reduce-motion .crt,
+body.reduce-motion .retro-shell::before {
+  animation: none !important;
+}
+
+/* Defensive: [hidden] always hides, even on overlay-style elements. */
+[hidden] {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * 5. Homepage grid + cards
+ *    Class names are fixed — other tasks (markup/JS) depend on them exactly.
+ * ------------------------------------------------------------------------- */
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-4);
+  max-width: 1200px;
+  margin-inline: auto;
+}
+
+/* Retro-themed card surface (overrides base .card look for the home shell). */
+.retro-shell .card {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  background-color: rgba(19, 18, 58, 0.78);
+  border: 2px solid rgba(0, 240, 255, 0.35);
+  border-radius: var(--radius-md);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    var(--shadow-md);
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.retro-shell .card:hover {
+  border-color: var(--retro-cyan);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    var(--retro-glow-cyan),
+    var(--shadow-md);
+}
+
+/* Fixed-aspect art frame — screenshots live in a 4:3 box and never distort. */
+.card__art-frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  background-color: #050514;
+  background-image:
+    radial-gradient(ellipse at 50% 35%, rgba(123, 47, 247, 0.25), transparent 65%),
+    linear-gradient(135deg, #0a0a1f, #1b0b3a);
+  border-bottom: 2px solid rgba(0, 240, 255, 0.35);
+  overflow: hidden;
+}
+
+/* Subtle phosphor scan inside the art frame (does not affect the image). */
+.card__art-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.18) 0,
+    rgba(0, 0, 0, 0.18) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  opacity: 0.5;
+}
+
+/* The screenshot itself — CONTAIN, never cover, never stretch. */
+.card__art {
+  position: relative;
+  z-index: 1;
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Bottom title bar: semi-transparent overlay, arcade font, high contrast. */
+.card__title {
+  display: block;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background-color: rgba(10, 10, 31, 0.82);
+  color: var(--retro-cyan);
+  font-family: var(--font-arcade);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  letter-spacing: 0.5px;
+  text-align: center;
+  text-shadow: var(--retro-glow-cyan);
+  text-decoration: none;
+  border-top: 1px solid rgba(0, 240, 255, 0.25);
+}
+
+/* Settings tile — distinct accent (magenta + asterisk motif). */
+.card--settings {
+  border-color: rgba(255, 46, 136, 0.5);
+}
+
+.card--settings .card__art-frame {
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(255, 46, 136, 0.28), transparent 65%),
+    linear-gradient(135deg, #1b0b3a, #2a0a2a);
+  border-bottom-color: rgba(255, 46, 136, 0.5);
+}
+
+/* CSS-only gear/asterisk motif drawn with two crossed bars + a center pip. */
+.card--settings .card__art-frame::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 56%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  background-image:
+    linear-gradient(0deg, var(--retro-magenta) 0 14%, transparent 14%),
+    linear-gradient(90deg, var(--retro-magenta) 0 14%, transparent 14%),
+    linear-gradient(45deg, var(--retro-magenta) 0 10%, transparent 10%),
+    linear-gradient(-45deg, var(--retro-magenta) 0 10%, transparent 10%);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  filter: drop-shadow(0 0 6px rgba(255, 46, 136, 0.7));
+  z-index: 2;
+}
+
+.card--settings .card__title {
+  color: var(--retro-magenta);
+  text-shadow: var(--retro-glow-magenta);
+  border-top-color: rgba(255, 46, 136, 0.35);
+}
+
+/* Console "focused" state — thick neon border, inner+outer glow, slight scale.
+   Triggered by .is-active (JS) or :focus-visible (keyboard). */
+.card.is-active,
+.retro-shell .card:focus-visible {
+  outline: none;
+  border-color: var(--retro-magenta);
+  transform: scale(1.04);
+  box-shadow:
+    0 0 0 3px rgba(255, 46, 136, 0.65),
+    var(--retro-glow-magenta),
+    var(--retro-glow-cyan),
+    var(--shadow-lg);
+  z-index: 2;
+}
+
+.card.is-active .card__title,
+.retro-shell .card:focus-visible .card__title {
+  color: var(--c-text);
+}
+
+/* Reduced-motion: keep the neon border + glow (focus still visible) but drop
+   the scale transform. Honors both the media query and the body class. */
+@media (prefers-reduced-motion: reduce) {
+  .card.is-active,
+  .retro-shell .card:focus-visible {
+    transform: none;
+  }
+}
+
+body.reduce-motion .card.is-active,
+body.reduce-motion .retro-shell .card:focus-visible {
+  transform: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * 6. Header wordmark — neon glow treatment on logo image + tagline
+ * ------------------------------------------------------------------------- */
+
+.page__title {
+  text-align: center;
+}
+
+.page__title img {
+  filter:
+    drop-shadow(0 0 6px rgba(0, 240, 255, 0.7))
+    drop-shadow(0 0 16px rgba(255, 46, 136, 0.45));
+}
+
+.page__title--tagline,
+.page__title .tagline,
+.retro-tagline {
+  display: block;
+  margin-top: var(--space-3);
+  font-family: var(--font-arcade);
+  font-size: var(--fs-xs);
+  letter-spacing: 1px;
+  color: var(--retro-cyan);
+  text-shadow: var(--retro-glow-cyan);
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------------------
+ * 7. Footer status bar — controller-button legend + gamepad pill
+ * ------------------------------------------------------------------------- */
+
+.status-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 55;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 64px;
+  padding: var(--space-2) var(--space-4);
+  background-color: rgba(6, 6, 26, 0.92);
+  border-top: 2px solid var(--retro-cyan);
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.55), var(--retro-glow-cyan);
+  backdrop-filter: blur(4px);
+}
+
+.status-bar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Legend chip — large readable hit target, arcade font for the button glyph. */
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  background-color: rgba(19, 18, 58, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: var(--radius-pill);
+  color: var(--c-text);
+  font-size: var(--fs-sm);
+}
+
+.legend-chip__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--space-2);
+  background-color: var(--retro-magenta);
+  color: #1a0010;
+  font-family: var(--font-arcade);
+  font-size: 0.625rem;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--retro-glow-magenta);
+}
+
+.legend-chip__label {
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+}
+
+/* Gamepad connection pill — reuses/extends .gamepad-banner look. */
+.status-bar .gamepad-banner {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  background-color: rgba(19, 18, 58, 0.85);
+  border-color: var(--retro-dim-ink);
+  min-height: 44px;
+}
+
+.status-bar .gamepad-banner.is-connected {
+  border-color: var(--retro-green);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 10px rgba(123, 237, 159, 0.5);
+}
+
+.status-bar .gamepad-banner.is-connected .gamepad-banner__dot {
+  background-color: var(--retro-green);
+  box-shadow: 0 0 8px rgba(123, 237, 159, 0.8);
+}
+
+/* ---------------------------------------------------------------------------
+ * 8. Settings panel — full-screen dim backdrop + centered card
+ * ------------------------------------------------------------------------- */
+
+.settings-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background-color: rgba(5, 5, 20, 0.82);
+  backdrop-filter: blur(4px);
+}
+
+.settings-panel__card {
+  width: min(560px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--space-5);
+  background-color: rgba(19, 18, 58, 0.96);
+  border: 2px solid var(--retro-cyan);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--retro-glow-cyan), var(--shadow-lg);
+}
+
+.settings-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.settings-panel__title {
+  margin: 0;
+  font-family: var(--font-arcade);
+  font-size: var(--fs-sm);
+  letter-spacing: 1px;
+  color: var(--retro-cyan);
+  text-shadow: var(--retro-glow-cyan);
+}
+
+/* Close affordance — large tap target. */
+.settings-panel__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background-color: var(--retro-magenta);
+  color: #1a0010;
+  font-family: var(--font-arcade);
+  font-size: var(--fs-sm);
+  line-height: 1;
+  box-shadow: var(--retro-glow-magenta);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.settings-panel__close:hover {
+  transform: translateY(-1px);
+}
+
+.settings-panel__close:focus-visible {
+  outline: 3px solid var(--retro-cyan);
+  outline-offset: 3px;
+}
+
+/* Vertical list of rows. */
+.settings-panel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 56px;
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid rgba(0, 240, 255, 0.18);
+}
+
+.settings-panel__row:last-child {
+  border-bottom: none;
+}
+
+.settings-panel__label {
+  flex: 1 1 auto;
+  color: var(--c-text);
+  font-size: var(--fs-md);
+}
+
+/* Cycle control — a tappable button that steps through options. */
+.settings-panel__cycle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  background-color: rgba(10, 10, 31, 0.8);
+  border: 1px solid var(--retro-dim-ink);
+  border-radius: var(--radius-pill);
+  color: var(--retro-cyan);
+  font-family: var(--font-arcade);
+  font-size: 0.625rem;
+  letter-spacing: 0.5px;
+}
+
+.settings-panel__cycle:focus-visible {
+  outline: 3px solid var(--retro-magenta);
+  outline-offset: 2px;
+  border-color: var(--retro-magenta);
+}
+
+/* Toggle switch — large thumb, clear on/off. */
+.settings-panel__toggle {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 64px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  background-color: var(--retro-dim);
+  border: 1px solid var(--retro-dim-ink);
+  cursor: pointer;
+  transition: background-color var(--transition-base), border-color var(--transition-base);
+}
+
+.settings-panel__toggle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: var(--c-text);
+  transform: translateY(-50%);
+  transition: transform var(--transition-base), background-color var(--transition-base);
+}
+
+.settings-panel__toggle.is-on {
+  background-color: var(--retro-magenta);
+  border-color: var(--retro-magenta);
+  box-shadow: var(--retro-glow-magenta);
+}
+
+.settings-panel__toggle.is-on::after {
+  left: auto;
+  right: 4px;
+  background-color: #1a0010;
+}
+
+.settings-panel__toggle:focus-visible {
+  outline: 3px solid var(--retro-cyan);
+  outline-offset: 3px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 9. Controller overlay — fixed top-right, above .back-home (z-index 60)
+ * ------------------------------------------------------------------------- */
+
+.controller-overlay {
+  position: fixed;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 60;
+  display: block;
+  width: clamp(180px, 22vw, 240px);
+  padding: var(--space-3);
+  background-color: rgba(6, 6, 26, 0.78);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(3px);
+}
+
+.controller-overlay__title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-arcade);
+  font-size: 0.5625rem;
+  letter-spacing: 0.5px;
+  color: var(--retro-cyan);
+  text-shadow: var(--retro-glow-cyan);
+  text-align: center;
+}
+
+/* [hidden] defensively hidden — declared globally in §4 but repeated for clarity. */
+.controller-overlay[hidden] {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * 10. Controller glyph schematic (built by shared/controller-glyph.js)
+ *     Class names are FIXED — the module emits them exactly. We lay them out
+ *     as a compact controller: shoulders top, dpad+face mid, sticks bottom.
+ *     Inactive = dim phosphor; .is-active = bright neon fill + glow.
+ *     Analog parts (stick-dot translate, trigger opacity) are driven inline by
+ *     the module; CSS only provides sensible base sizing.
+ * ------------------------------------------------------------------------- */
+
+.controller-glyph {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2);
+}
+
+/* Base part style: everything is a rounded dim phosphor shape by default. */
+.controller-glyph__shoulders,
+.controller-glyph__body,
+.controller-glyph__sticks,
+.controller-glyph__dpad,
+.controller-glyph__face,
+.controller-glyph__bumper,
+.controller-glyph__trigger,
+.controller-glyph__stick,
+.controller-glyph__stick-click,
+.controller-glyph__stick-dot {
+  box-sizing: border-box;
+}
+
+/* Top shoulder row: triggers + bumpers laid side by side. */
+.controller-glyph__shoulders {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+/* Bumpers + triggers are horizontal bars. */
+.controller-glyph__bumper,
+.controller-glyph__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background-color: var(--retro-dim);
+  color: var(--retro-dim-ink);
+  font-family: var(--font-arcade);
+  font-size: 0.5rem;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(0, 240, 255, 0.18);
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.controller-glyph__bumper--left,
+.controller-glyph__trigger--left {
+  grid-column: 1;
+}
+
+.controller-glyph__bumper--right,
+.controller-glyph__trigger--right {
+  grid-column: 2;
+}
+
+/* Stack the bumper row beneath the trigger row by grouping same-column items. */
+.controller-glyph__trigger--left {
+  grid-row: 1;
+}
+.controller-glyph__trigger--right {
+  grid-row: 1;
+}
+.controller-glyph__bumper--left {
+  grid-row: 2;
+}
+.controller-glyph__bumper--right {
+  grid-row: 2;
+}
+
+/* Middle body: dpad on the left, face diamond on the right. */
+.controller-glyph__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  align-items: center;
+  justify-items: center;
+  padding: var(--space-2) 0;
+}
+
+/* D-Pad cross — relative square with 4 arms. */
+.controller-glyph__dpad {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+
+.controller-glyph__dpad-arm {
+  position: absolute;
+  background-color: var(--retro-dim);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+/* Cross arms: vertical bar (up/down) + horizontal bar (left/right). */
+.controller-glyph__dpad-arm--up,
+.controller-glyph__dpad-arm--down {
+  left: 50%;
+  width: 18px;
+  height: 30px;
+  transform: translateX(-50%);
+}
+
+.controller-glyph__dpad-arm--up {
+  top: 2px;
+}
+.controller-glyph__dpad-arm--down {
+  bottom: 2px;
+}
+
+.controller-glyph__dpad-arm--left,
+.controller-glyph__dpad-arm--right {
+  top: 50%;
+  width: 30px;
+  height: 18px;
+  transform: translateY(-50%);
+}
+
+.controller-glyph__dpad-arm--left {
+  left: 2px;
+}
+.controller-glyph__dpad-arm--right {
+  right: 2px;
+}
+
+/* Face diamond — relative square with 4 pads positioned around center. */
+.controller-glyph__face {
+  position: relative;
+  width: 72px;
+  height: 72px;
+}
+
+.controller-glyph__pad {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--retro-dim);
+  color: var(--retro-dim-ink);
+  font-family: var(--font-arcade);
+  font-size: 0.5rem;
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+/* Diamond positions inside the 72x72 face box. */
+.controller-glyph__pad--top {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.controller-glyph__pad--bottom {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.controller-glyph__pad--left {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+.controller-glyph__pad--right {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+/* Bottom stick row — two analog sticks. */
+.controller-glyph__sticks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  justify-items: center;
+  padding-top: var(--space-2);
+}
+
+.controller-glyph__stick {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: var(--retro-dim);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+/* Inner moving dot — module translates it via inline transform. */
+.controller-glyph__stick-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--retro-cyan);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Stick-click (L3/R3) indicator — small pip nested inside the stick. */
+.controller-glyph__stick-click {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 2px;
+  font-family: var(--font-arcade);
+  font-size: 0.4375rem;
+  color: var(--retro-dim-ink);
+  pointer-events: none;
+}
+
+/* Active state — digital parts light up brightly (neon fill + glow). */
+.controller-glyph__pad.is-active,
+.controller-glyph__pad[data-active='true'] {
+  background-color: var(--retro-magenta);
+  color: #1a0010;
+  border-color: var(--retro-magenta);
+  box-shadow: var(--retro-glow-magenta);
+}
+
+/* Preserve the centering transform when active (pads that also translate). */
+.controller-glyph__pad.is-active.controller-glyph__pad--top,
+.controller-glyph__pad[data-active='true'].controller-glyph__pad--top,
+.controller-glyph__pad.is-active.controller-glyph__pad--bottom,
+.controller-glyph__pad[data-active='true'].controller-glyph__pad--bottom {
+  transform: translateX(-50%) scale(1.12);
+}
+.controller-glyph__pad.is-active.controller-glyph__pad--left,
+.controller-glyph__pad[data-active='true'].controller-glyph__pad--left,
+.controller-glyph__pad.is-active.controller-glyph__pad--right,
+.controller-glyph__pad[data-active='true'].controller-glyph__pad--right {
+  transform: translateY(-50%) scale(1.12);
+}
+
+.controller-glyph__dpad-arm.is-active,
+.controller-glyph__dpad-arm[data-active='true'] {
+  background-color: var(--retro-cyan);
+  border-color: var(--retro-cyan);
+  box-shadow: var(--retro-glow-cyan);
+}
+
+.controller-glyph__bumper.is-active,
+.controller-glyph__bumper[data-active='true'] {
+  background-color: var(--retro-cyan);
+  color: #001016;
+  border-color: var(--retro-cyan);
+  box-shadow: var(--retro-glow-cyan);
+}
+
+.controller-glyph__trigger.is-active,
+.controller-glyph__trigger[data-active='true'] {
+  /* Opacity is driven inline by the module (0.3 + 0.7 * intensity). */
+  background-color: var(--retro-purple);
+  color: #ffffff;
+  border-color: var(--retro-purple);
+  box-shadow: var(--retro-glow-purple);
+}
+
+.controller-glyph__stick.is-active,
+.controller-glyph__stick[data-active='true'] {
+  background-color: #1b2350;
+  border-color: var(--retro-cyan);
+  box-shadow: var(--retro-glow-cyan);
+}
+
+.controller-glyph__stick-click.is-active,
+.controller-glyph__stick-click[data-active='true'] {
+  color: var(--retro-yellow);
+  text-shadow: 0 0 6px rgba(255, 210, 63, 0.8);
+}
