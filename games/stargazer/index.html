@@ -53,6 +53,11 @@
         border: 2px solid rgba(255, 255, 255, 0.1);
         touch-action: none;
       }
+      @media (prefers-reduced-motion: reduce) {
+        .prompt-row__label {
+          transition: none;
+        }
+      }
     </style>
   </head>
   <body>

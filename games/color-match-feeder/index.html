@@ -42,6 +42,11 @@
         border: 2px solid rgba(255, 255, 255, 0.15);
         touch-action: none;
       }
+      @media (prefers-reduced-motion: reduce) {
+        #stage {
+          transition: none;
+        }
+      }
     </style>
   </head>
   <body>

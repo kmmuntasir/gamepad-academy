@@ -40,6 +40,11 @@
         border: 2px solid rgba(255, 255, 255, 0.15);
         display: block;
       }
+      @media (prefers-reduced-motion: reduce) {
+        #game-canvas {
+          transition: none;
+        }
+      }
     </style>
   </head>
   <body>

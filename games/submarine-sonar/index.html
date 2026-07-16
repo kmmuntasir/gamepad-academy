@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Submarine Sonar</title>
+    <title>Submarine Sonar — Gamepad Academy</title>
     <link rel="stylesheet" href="../../shared/styles.css" />
     <style>
       /* Game-local layout. Global look comes from shared/styles.css. */
@@ -66,6 +66,12 @@
         margin-left: var(--space-1);
         border: 1px solid rgba(255, 255, 255, 0.35);
       }
+      @media (prefers-reduced-motion: reduce) {
+        .submarine-stage,
+        .headlight-readout__swatch {
+          transition: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -79,7 +85,7 @@
       role="status"
       aria-live="polite"
     >
-      <span class="gamepad-banner__dot"></span>
+      <span class="gamepad-banner__dot" aria-hidden="true"></span>
       <span class="gamepad-banner__text">Waiting for a controller…</span>
     </div>
 

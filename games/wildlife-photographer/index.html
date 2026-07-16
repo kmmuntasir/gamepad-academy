@@ -98,6 +98,12 @@
         font-size: var(--fs-md);
         color: var(--c-text);
       }
+      @media (prefers-reduced-motion: reduce) {
+        .scrapbook__thumb,
+        #photo-canvas {
+          transition: none;
+        }
+      }
     </style>
   </head>
   <body>
