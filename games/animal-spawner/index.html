@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Animal Spawner — Gamepad Academy</title>
+    <link rel="stylesheet" href="../../shared/styles.css" />
+    <style>
+      /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      .spawn-stage {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        align-items: stretch;
+      }
+      .spawn-instructions {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: var(--fs-md);
+      }
+      .spawn-instructions strong {
+        color: var(--c-primary);
+      }
+      .prompt-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: var(--space-3);
+      }
+      .prompt-row__label {
+        font-size: var(--fs-md);
+        color: var(--c-text);
+      }
+      #play-area {
+        position: relative;
+        width: 100%;
+        height: min(60vh, 540px);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+        transition:
+          background-color 200ms ease,
+          box-shadow 200ms ease;
+        border: 2px solid rgba(255, 255, 255, 0.15);
+      }
+      /* Spawned emoji: absolutely positioned, large, with a pop/scale-in. */
+      .spawned {
+        position: absolute;
+        transform: translate(-50%, -50%) scale(0.2);
+        font-size: clamp(3rem, 8vw, 5rem);
+        line-height: 1;
+        user-select: none;
+        pointer-events: none;
+        filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+        animation: spawn-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        transition: opacity 600ms ease;
+      }
+      .spawned.is-fading {
+        opacity: 0;
+      }
+      @keyframes spawn-pop {
+        0% {
+          transform: translate(-50%, -50%) scale(0.2);
+        }
+        70% {
+          transform: translate(-50%, -50%) scale(1.1);
+        }
+        100% {
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .spawned {
+          animation: none;
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="back-home-row">
+      <a class="back-home" href="../../index.html">← Back to Home</a>
+    </div>
+
+    <main class="page spawn-stage">
+      <h1 class="page__title">Animal Spawner</h1>
+
+      <div class="gamepad-banner" role="status" aria-live="polite">
+        <span class="gamepad-banner__dot" aria-hidden="true"></span>
+        <span id="banner-text">No controller — use the keyboard (WASD = face, Arrows = D-Pad).</span>
+      </div>
+
+      <p class="spawn-instructions">
+        Press the <strong>face buttons</strong> to spawn animals.
+        Use the <strong>D-Pad</strong> to change the background color.
+      </p>
+
+      <div class="prompt-row">
+        <span class="prompt-row__label">Spawn (Bottom button):</span>
+        <span id="prompt-glyph" aria-hidden="true"></span>
+      </div>
+
+      <div id="play-area" aria-label="Animal play area"></div>
+    </main>
+
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
