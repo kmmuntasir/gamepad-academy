@@ -5,14 +5,174 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gamepad Academy</title>
     <link rel="stylesheet" href="shared/styles.css" />
+    <link rel="stylesheet" href="shared/retro.css" />
   </head>
-  <body>
+  <body class="retro-shell">
+    <!-- CRT scanline overlay — toggled off via body.no-crt. -->
+    <div class="crt" aria-hidden="true"></div>
+
     <main class="page">
       <header class="page__title">
         <h1 class="sr-only">Gamepad Academy</h1>
         <img src="assets/images/logo.svg" alt="Gamepad Academy" />
-        <p>Learn your gamepad, one game at a time.</p>
+        <p class="retro-tagline">Learn your gamepad, one game at a time.</p>
       </header>
+
+      <nav class="home-grid" aria-label="Games">
+        <a class="card" href="games/animal-spawner/index.html">
+          <span class="card__art-frame">
+            <img
+              class="card__art"
+              src="game-screenshots/animal-spawner.png"
+              loading="lazy"
+              alt=""
+            />
+          </span>
+          <span class="card__title">🐾 Animal Spawner</span>
+          <span class="card__desc">Teaches: Face buttons + D-Pad</span>
+        </a>
+        <a class="card" href="games/bumper-lane-runner/index.html">
+          <span class="card__art-frame">
+            <img
+              class="card__art"
+              src="game-screenshots/bumper-lane-runner.png"
+              loading="lazy"
+              alt=""
+            />
+          </span>
+          <span class="card__title">🚗 Bumper Lane Runner</span>
+          <span class="card__desc">Teaches: Bumpers (L1/R1)</span>
+        </a>
+        <a class="card" href="games/simon-says/index.html">
+          <span class="card__art-frame">
+            <img
+              class="card__art"
+              src="game-screenshots/simon-says.png"
+              loading="lazy"
+              alt=""
+            />
+          </span>
+          <span class="card__title">🎵 Simon Says</span>
+          <span class="card__desc">Teaches: Face buttons + memory</span>
+        </a>
+        <a class="card" href="games/claw-machine/index.html">
+          <span class="card__art-frame">
+            <img
+              class="card__art"
+              src="game-screenshots/claw-machine.png"
+              loading="lazy"
+              alt=""
+            />
+          </span>
+          <span class="card__title">🦾 Claw Machine</span>
+          <span class="card__desc">Teaches: D-Pad grid navigation</span>
+        </a>
+        <a class="card" href="games/color-match-feeder/index.html">
+          <span class="card__art-frame">
+            <img
+              class="card__art"
+              src="game-screenshots/color-match-feeder.png"
+              loading="lazy"
+              alt=""
+            />
+          </span>
+          <span class="card__title">🍪 Color-Match Feeder</span>
+          <span class="card__desc">Teaches: Face buttons + timing</span>
+        </a>
+        <a class="card" href="games/stargazer/index.html">
+          <span class="card__art-frame">
+            <img
+              class="card__art"
+              src="game-screenshots/stargazer.png"
+              loading="lazy"
+              alt=""
+            />
+          </span>
+          <span class="card__title">✨ Stargazer</span>
+          <span class="card__desc">Teaches: Left stick + face buttons</span>
+        </a>
+        <a class="card" href="games/butterfly-catcher/index.html">
+          <span class="card__art-frame">
+            <img
+              class="card__art"
+              src="game-screenshots/butterfly-catcher.png"
+              loading="lazy"
+              alt=""
+            />
+          </span>
+          <span class="card__title">🦋 Butterfly Catcher</span>
+          <span class="card__desc">Teaches: Analog stick tilt</span>
+        </a>
+        <a class="card" href="games/hot-air-balloon/index.html">
+          <span class="card__art-frame">
+            <img
+              class="card__art"
+              src="game-screenshots/hot-air-baloon.png"
+              loading="lazy"
+              alt=""
+            />
+          </span>
+          <span class="card__title">🎈 Hot Air Balloon</span>
+          <span class="card__desc">Teaches: Analog trigger pressure</span>
+        </a>
+        <a class="card" href="games/submarine-sonar/index.html">
+          <span class="card__art-frame">
+            <img
+              class="card__art"
+              src="game-screenshots/submarine-sonar.png"
+              loading="lazy"
+              alt=""
+            />
+          </span>
+          <span class="card__title">🚢 Submarine Sonar</span>
+          <span class="card__desc">Teaches: Stick-clicks (L3/R3)</span>
+        </a>
+        <a class="card" href="games/wildlife-photographer/index.html">
+          <span class="card__art-frame">
+            <img
+              class="card__art"
+              src="game-screenshots/wildlife-photographer.png"
+              loading="lazy"
+              alt=""
+            />
+          </span>
+          <span class="card__title">📷 Wildlife Photographer</span>
+          <span class="card__desc">Teaches: Right stick + trigger</span>
+        </a>
+        <a class="card" href="games/city-pop-dj/index.html">
+          <span class="card__art-frame">
+            <img
+              class="card__art"
+              src="game-screenshots/city-pop-dj.png"
+              loading="lazy"
+              alt=""
+            />
+          </span>
+          <span class="card__title">🎧 City-Pop DJ</span>
+          <span class="card__desc">Teaches: Holding &amp; chording</span>
+        </a>
+        <button class="card card--settings" type="button">
+          <span class="card__art-frame"></span>
+          <span class="card__title">⚙ Settings</span>
+        </button>
+      </nav>
+    </main>
+
+    <footer class="status-bar">
+      <div class="status-bar__legend">
+        <span class="legend-chip">
+          <span class="legend-chip__key" data-legend-key="move">D-Pad</span>
+          <span class="legend-chip__label">Move</span>
+        </span>
+        <span class="legend-chip">
+          <span class="legend-chip__key" data-legend-key="select">A</span>
+          <span class="legend-chip__label">Select</span>
+        </span>
+        <span class="legend-chip">
+          <span class="legend-chip__key" data-legend-key="back">B</span>
+          <span class="legend-chip__label">Back</span>
+        </span>
+      </div>
 
       <div
         class="gamepad-banner"
@@ -23,82 +183,14 @@
         <span class="gamepad-banner__dot" aria-hidden="true"></span>
         <span id="gamepad-banner-text">Connect a gamepad and press any button.</span>
       </div>
+    </footer>
 
-      <nav class="card-grid" aria-label="Games">
-        <a class="card" href="games/animal-spawner/index.html">
-          <span class="card__title" aria-hidden="true">🐾 Animal Spawner</span>
-          <span class="card__desc">Teaches: Face buttons + D-Pad</span>
-        </a>
-        <a class="card" href="games/bumper-lane-runner/index.html">
-          <span class="card__title" aria-hidden="true">🚗 Bumper Lane Runner</span>
-          <span class="card__desc">Teaches: Bumpers (L1/R1)</span>
-        </a>
-        <a class="card" href="games/simon-says/index.html">
-          <span class="card__title" aria-hidden="true">🎵 Simon Says</span>
-          <span class="card__desc">Teaches: Face buttons + memory</span>
-        </a>
-        <a class="card" href="games/claw-machine/index.html">
-          <span class="card__title" aria-hidden="true">🦾 Claw Machine</span>
-          <span class="card__desc">Teaches: D-Pad grid navigation</span>
-        </a>
-        <a class="card" href="games/color-match-feeder/index.html">
-          <span class="card__title" aria-hidden="true">🍪 Color-Match Feeder</span>
-          <span class="card__desc">Teaches: Face buttons + timing</span>
-        </a>
-        <a class="card" href="games/stargazer/index.html">
-          <span class="card__title" aria-hidden="true">✨ Stargazer</span>
-          <span class="card__desc">Teaches: Left stick + face buttons</span>
-        </a>
-        <a class="card" href="games/butterfly-catcher/index.html">
-          <span class="card__title" aria-hidden="true">🦋 Butterfly Catcher</span>
-          <span class="card__desc">Teaches: Analog stick tilt</span>
-        </a>
-        <a class="card" href="games/hot-air-balloon/index.html">
-          <span class="card__title" aria-hidden="true">🎈 Hot Air Balloon</span>
-          <span class="card__desc">Teaches: Analog trigger pressure</span>
-        </a>
-        <a class="card" href="games/submarine-sonar/index.html">
-          <span class="card__title" aria-hidden="true">🚢 Submarine Sonar</span>
-          <span class="card__desc">Teaches: Stick-clicks (L3/R3)</span>
-        </a>
-        <a class="card" href="games/wildlife-photographer/index.html">
-          <span class="card__title" aria-hidden="true">📷 Wildlife Photographer</span>
-          <span class="card__desc">Teaches: Right stick + trigger</span>
-        </a>
-        <a class="card" href="games/city-pop-dj/index.html">
-          <span class="card__title" aria-hidden="true">🎧 City-Pop DJ</span>
-          <span class="card__desc">Teaches: Holding &amp; chording</span>
-        </a>
-      </nav>
-    </main>
+    <!-- Live controller schematic — mounted by home.js when enabled. -->
+    <div class="controller-overlay" hidden></div>
 
-    <script type="module">
-      import { gamepadManager } from './shared/gamepad-manager.js';
+    <!-- Settings panel — built by home.js on open. -->
+    <div class="settings-panel" hidden></div>
 
-      const banner = document.getElementById('gamepad-banner');
-      const bannerText = document.getElementById('gamepad-banner-text');
-      const DEFAULT_TEXT = 'Connect a gamepad and press any button.';
-
-      const LAYOUT_LABELS = {
-        xbox: 'Xbox',
-        playstation: 'PlayStation',
-        switch: 'Switch',
-      };
-
-      function labelForLayout(layout) {
-        return LAYOUT_LABELS[layout] || 'Xbox';
-      }
-
-      window.addEventListener('gamepad-availability', (event) => {
-        const { connected, layout } = event.detail || {};
-        if (connected) {
-          banner.classList.add('is-connected');
-          bannerText.textContent = `${labelForLayout(layout)} controller connected`;
-        } else {
-          banner.classList.remove('is-connected');
-          bannerText.textContent = DEFAULT_TEXT;
-        }
-      });
-    </script>
+    <script type="module" src="./home.js"></script>
   </body>
 </html>
