@@ -176,23 +176,26 @@ function setTriggerIntensity(part, value) {
   }
 }
 
-/** Translate a stick's inner dot by the {x, y} vector (-1..1 each). */
+/** Drive a stick's inner dot from the {x, y} vector (-1..1 each).
+ *  Exposes the vector + magnitude as CSS custom properties so the stylesheet
+ *  can position the dot within the stick well (geometry stays in CSS). The
+ *  dot then travels the FULL well radius in the exact direction, and its
+ *  distance from center reflects how hard the stick is pressed. */
 function setStickVector(part, vector) {
   if (!part) return;
   const dot = part.querySelector('[data-role="stick-dot"]');
   if (!dot) return;
   const x = vector && Number.isFinite(vector.x) ? vector.x : 0;
   const y = vector && Number.isFinite(vector.y) ? vector.y : 0;
+  const mag = Math.min(1, Math.hypot(x, y));
   part.dataset.x = String(x);
   part.dataset.y = String(y);
+  part.style.setProperty('--vec-x', String(x));
+  part.style.setProperty('--vec-y', String(y));
+  part.style.setProperty('--mag', String(mag));
   if (x === 0 && y === 0) {
-    dot.style.transform = '';
     part.classList.remove('is-active');
   } else {
-    // Percent-based translate keeps the helper CSS-agnostic: the stylesheet
-    // sizes the stick + dot, and this expresses the vector as a fraction of
-    // half the stick's box (so 1.0 reaches the rim).
-    dot.style.transform = `translate(${x * 50}%, ${y * 50}%)`;
     part.classList.add('is-active');
   }
 }

@@ -212,6 +212,8 @@ body.reduce-motion .retro-shell::before {
 /* Retro-themed card surface (overrides base .card look for the home shell). */
 .retro-shell .card {
   position: relative;
+  display: flex;
+  flex-direction: column;
   padding: 0;
   overflow: hidden;
   background-color: rgba(19, 18, 58, 0.78);
@@ -237,6 +239,7 @@ body.reduce-motion .retro-shell::before {
 /* Fixed-aspect art frame — screenshots live in a 4:3 box and never distort. */
 .card__art-frame {
   position: relative;
+  display: block;
   aspect-ratio: 4 / 3;
   width: 100%;
   background-color: #050514;
@@ -879,16 +882,25 @@ body.reduce-motion .retro-shell .card:focus-visible {
     box-shadow var(--transition-fast);
 }
 
-/* Inner moving dot — module translates it via inline transform. */
+/* Inner moving dot — driven by --vec-x/--vec-y/--mag set on the stick by
+   controller-glyph.js. left/top % are relative to the 44px stick WELL (the
+   dot's offset parent), so the dot center tracks the exact direction and its
+   distance from center equals the pressure. translate(-50%, -50%) re-centers
+   the dot on that point, keeping the dot center and travel radius aligned
+   with the well. 34% ≈ the inner rim (full deflection reaches the edge). */
 .controller-glyph__stick-dot {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  left: calc(50% + var(--vec-x, 0) * 34%);
+  top: calc(50% + var(--vec-y, 0) * 34%);
   width: 14px;
   height: 14px;
   border-radius: 50%;
   background-color: var(--retro-cyan);
   transform: translate(-50%, -50%);
+  box-shadow:
+    0 0 calc(4px + var(--mag, 0) * 10px)
+      rgba(0, 240, 255, calc(0.35 + var(--mag, 0) * 0.5));
+  transition: box-shadow var(--transition-fast);
   pointer-events: none;
 }
 
