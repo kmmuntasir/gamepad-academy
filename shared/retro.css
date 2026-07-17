@@ -64,8 +64,12 @@
 
 .retro-shell {
   position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Fixed-height app shell: header + status bar stay put; only the grid scrolls. */
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   color: var(--c-text);
   background-color: var(--retro-bg-0);
   background-image:
@@ -76,8 +80,6 @@
     /* Base vertical gradient: indigo sky → deep purple-black floor. */
     linear-gradient(180deg, var(--retro-bg-0) 0%, var(--retro-bg-1) 45%, var(--retro-bg-2) 78%, #06061a 100%);
   background-attachment: fixed;
-  /* Reserve room for the fixed .status-bar so cards never hide under it. */
-  padding-bottom: 96px;
 }
 
 /* Perspective synthwave grid floor — pure CSS, sits behind content.
@@ -131,6 +133,18 @@
 .retro-shell > * {
   position: relative;
   z-index: 1;
+}
+
+/* App-shell content column: stationary header above the scrolling grid. */
+.retro-shell .page {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.retro-shell .page__title {
+  flex: 0 0 auto;
 }
 
 /* ---------------------------------------------------------------------------
@@ -207,6 +221,10 @@ body.reduce-motion .retro-shell::before {
   padding: var(--space-5) var(--space-4);
   max-width: 1200px;
   margin-inline: auto;
+  /* Only the grid scrolls — fill the .page column and scroll its own overflow. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Retro-themed card surface (overrides base .card look for the home shell). */
@@ -291,6 +309,15 @@ body.reduce-motion .retro-shell::before {
   text-shadow: var(--retro-glow-cyan);
   text-decoration: none;
   border-top: 1px solid rgba(0, 240, 255, 0.25);
+}
+
+/* "Teaches: …" caption — centered with balanced padding so it isn't flush
+   against the title bar and reads as a centered, middle-aligned line. */
+.retro-shell .card__desc {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  text-align: center;
+  color: var(--c-muted);
+  font-size: var(--fs-xs);
 }
 
 /* Settings tile — distinct accent (magenta + asterisk motif). */
@@ -398,10 +425,8 @@ body.reduce-motion .retro-shell .card:focus-visible {
  * ------------------------------------------------------------------------- */
 
 .status-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  /* In-flow footer of the app-shell flex column (no longer fixed/overlapping). */
+  flex: 0 0 auto;
   z-index: 55;
   display: flex;
   flex-wrap: wrap;
