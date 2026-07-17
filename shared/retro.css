@@ -1002,3 +1002,112 @@ body.reduce-motion .retro-shell .card:focus-visible {
   color: var(--retro-yellow);
   text-shadow: 0 0 6px rgba(255, 210, 63, 0.8);
 }
+
+/* ---------------------------------------------------------------------------
+ * 11. Game page no-scroll frame (body.game-page added by shared/game-shell.js)
+ *     Pins the viewport so the game's own stage scrolls instead of the page.
+ *     The game's `.page` becomes a flex column whose stage/canvas can claim
+ *     `flex: 1; min-height: 0;` to fill the available space without overflow.
+ * ------------------------------------------------------------------------- */
+
+body.game-page {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Sticky back-home row becomes a fixed-height flex item so it never pushes
+   the stage off-screen. */
+body.game-page .back-home-row {
+  flex: 0 0 auto;
+  position: static;
+}
+
+body.game-page .page {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+ * 12. Pause menu — Start-button overlay (Resume / Restart / Back to Home /
+ *     Settings). Mirrors the .settings-panel look; z-index sits above gameplay
+ *     and the controller overlay (60) but below the settings panel (70) so the
+ *     settings stack opens on top of the pause card.
+ * ------------------------------------------------------------------------- */
+
+.game-pause {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background-color: rgba(5, 5, 20, 0.82);
+  backdrop-filter: blur(4px);
+}
+
+.game-pause__card {
+  width: min(440px, 100%);
+  padding: var(--space-5);
+  background-color: rgba(19, 18, 58, 0.96);
+  border: 2px solid var(--retro-magenta);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--retro-glow-magenta), var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.game-pause__title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-arcade);
+  font-size: var(--fs-sm);
+  letter-spacing: 1px;
+  color: var(--retro-magenta);
+  text-shadow: var(--retro-glow-magenta);
+  text-align: center;
+}
+
+.game-pause__item {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  background-color: rgba(10, 10, 31, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: var(--radius-md);
+  color: var(--c-text);
+  font-family: var(--font-arcade);
+  font-size: 0.6875rem;
+  letter-spacing: 0.5px;
+  text-align: center;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.game-pause__item:hover {
+  border-color: var(--retro-cyan);
+  color: var(--retro-cyan);
+  box-shadow: var(--retro-glow-cyan);
+}
+
+/* Gamepad focus (JS-driven) + keyboard focus ring share the same neon look. */
+.game-pause__item.is-active,
+.game-pause__item:focus-visible {
+  outline: none;
+  border-color: var(--retro-magenta);
+  color: var(--retro-cyan);
+  box-shadow:
+    0 0 0 3px rgba(255, 46, 136, 0.65),
+    var(--retro-glow-magenta),
+    var(--retro-glow-cyan);
+}

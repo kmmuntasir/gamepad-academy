@@ -16,7 +16,7 @@ export const LAYOUT_OVERRIDE_VALUES = ['auto', 'xbox', 'playstation', 'switch'];
  * can never mutate this object by reference.
  */
 export const DEFAULT_SETTINGS = Object.freeze({
-  controllerOverlay: false,
+  controllerOverlay: true,
   crt: true,
   uiSounds: true,
   reduceMotion: false,

@@ -47,7 +47,9 @@ class GamepadManager {
     this.triggerDeadzone = triggerDeadzone;
 
     this.activeIndex = null;
-    this.layout = 'xbox';
+    // Restore the last-detected layout so every page knows the controller
+    // identity immediately (even on a fresh Chromium load before any gesture).
+    this.layout = this._readLastLayout() || 'xbox';
     this.id = '';
     this.mapping = '';
     this.prev = { buttons: [], axes: [] };
@@ -126,6 +128,26 @@ class GamepadManager {
   /** Current detected layout: 'xbox' | 'playstation' | 'switch'. */
   getLayout() {
     return this.layout;
+  }
+
+  /** Persist + restore the last-detected layout so other pages — and a fresh
+   *  load on Chromium before any gesture — know the controller identity.
+   *  Fail-soft: private mode / Safari may block storage. */
+  _readLastLayout() {
+    try {
+      const v = localStorage.getItem('gac:last-layout');
+      return v === 'xbox' || v === 'playstation' || v === 'switch' ? v : '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  _writeLastLayout(layout) {
+    try {
+      localStorage.setItem('gac:last-layout', layout);
+    } catch (error) {
+      // Fail soft.
+    }
   }
 
   /**
@@ -363,6 +385,7 @@ class GamepadManager {
     const layout = detectLayout(pad.id);
     if (layout !== this.layout || pad.id !== this.id) {
       this.layout = layout;
+      this._writeLastLayout(layout);
     }
     this.id = pad.id;
     this.mapping = pad.mapping || '';

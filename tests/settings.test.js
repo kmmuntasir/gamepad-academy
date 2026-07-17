@@ -13,7 +13,7 @@ describe('DEFAULT_SETTINGS', () => {
 
   it('matches the canonical shape', () => {
     expect(DEFAULT_SETTINGS).toEqual({
-      controllerOverlay: false,
+      controllerOverlay: true,
       crt: true,
       uiSounds: true,
       reduceMotion: false,
@@ -35,7 +35,7 @@ describe('mergeDefaults — non-object / missing input returns fresh defaults', 
   table.forEach(({ name, stored }) => {
     it(name, () => {
       expect(mergeDefaults(stored, DEFAULT_SETTINGS)).toEqual({
-        controllerOverlay: false,
+        controllerOverlay: true,
         crt: true,
         uiSounds: true,
         reduceMotion: false,
@@ -48,7 +48,7 @@ describe('mergeDefaults — non-object / missing input returns fresh defaults', 
 describe('mergeDefaults — fills missing keys and keeps valid values', () => {
   it('empty object → all defaults', () => {
     expect(mergeDefaults({}, DEFAULT_SETTINGS)).toEqual({
-      controllerOverlay: false,
+      controllerOverlay: true,
       crt: true,
       uiSounds: true,
       reduceMotion: false,
@@ -76,7 +76,7 @@ describe('mergeDefaults — fills missing keys and keeps valid values', () => {
     const merged = mergeDefaults(stored, DEFAULT_SETTINGS);
     expect(merged.uiSounds).toBe(false);
     expect(merged.reduceMotion).toBe(true);
-    expect(merged.controllerOverlay).toBe(false); // filled
+    expect(merged.controllerOverlay).toBe(true); // filled
     expect(merged.crt).toBe(true); // filled
     expect(merged.layoutOverride).toBe('auto'); // filled
   });
