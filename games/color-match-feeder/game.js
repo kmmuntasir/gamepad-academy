@@ -9,6 +9,7 @@
 // `gamepad-*` events on `window` — never calls navigator.getGamepads().
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
+import { mountGameShell } from '../../shared/game-shell.js';
 import { playBlip } from '../../shared/utils.js';
 import {
   FACE_BOTTOM,
@@ -59,6 +60,14 @@ const ctx = canvas.getContext('2d');
 const bannerEl = document.querySelector('.gamepad-banner');
 const bannerText = document.getElementById('banner-text');
 const yumEl = document.getElementById('yum-count');
+
+// Game shell — retro theme, controller overlay, Start-button pause menu,
+// settings panel, and gamepad banner. Gates the loop + gameplay input below.
+const gameShell = mountGameShell({
+  bannerEl,
+  bannerTextEl: bannerText,
+  homeUrl: '../../index.html',
+});
 
 // ---------------------------------------------------------------------------
 // Canvas sizing — CSS size drives layout; backing store accounts for DPR.
@@ -368,6 +377,10 @@ function positionLetter(position) {
 
 function loop(timestamp) {
   if (!running) return;
+  if (gameShell.isPaused()) {
+    rafId = requestAnimationFrame(loop);
+    return;
+  }
   if (!lastTimestamp) lastTimestamp = timestamp;
   // Clamp dt to avoid huge jumps after a tab is foregrounded.
   const dt = Math.min(0.05, (timestamp - lastTimestamp) / 1000);
@@ -412,10 +425,22 @@ function syncBanner() {
 // Event handlers (bound so they can be removed on unload)
 // ---------------------------------------------------------------------------
 
-function onFaceBottom() { tryEat('bottom'); }
-function onFaceRight() { tryEat('right'); }
-function onFaceLeft() { tryEat('left'); }
-function onFaceTop() { tryEat('top'); }
+function onFaceBottom() {
+  if (gameShell.isPaused()) return;
+  tryEat('bottom');
+}
+function onFaceRight() {
+  if (gameShell.isPaused()) return;
+  tryEat('right');
+}
+function onFaceLeft() {
+  if (gameShell.isPaused()) return;
+  tryEat('left');
+}
+function onFaceTop() {
+  if (gameShell.isPaused()) return;
+  tryEat('top');
+}
 
 function onLayoutChange() {
   currentLayout = layoutKey();

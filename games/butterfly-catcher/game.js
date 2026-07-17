@@ -7,6 +7,7 @@
 // `gamepad-*` events on `window` — never calls navigator.getGamepads().
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
+import { mountGameShell } from '../../shared/game-shell.js';
 import {
   STICK_LEFT,
   LAYOUT_CHANGE,
@@ -452,7 +453,17 @@ function draw() {
 let rafId = null;
 let lastTimestamp = 0;
 
+// Shared game shell — provides retro theme, persistent overlay, banner, and
+// Start-button pause menu. Module-level so loop() can read isPaused().
+let gameShell = null;
+
 function loop(timestamp) {
+  // PAUSE THE LOOP: while the shell's pause menu is open, keep rAF alive but
+  // skip all state/draw work so the frozen frame stays under the overlay.
+  if (gameShell && gameShell.isPaused()) {
+    rafId = requestAnimationFrame(loop);
+    return;
+  }
   if (!lastTimestamp) lastTimestamp = timestamp;
   // Clamp dt to avoid huge jumps after tab-throttling; cap at 1/20s.
   const dt = Math.min(0.05, (timestamp - lastTimestamp) / 1000);
@@ -480,6 +491,9 @@ function syncBanner() {
 // ---------------------------------------------------------------------------
 
 function onStickLeft(event) {
+  // GUARD HANDLER: ignore gameplay input while the pause menu is open. Layout
+  // and availability handlers stay unguarded per task rules.
+  if (gameShell && gameShell.isPaused()) return;
   const { x, y } = event.detail || {};
   if (typeof x !== 'number' || typeof y !== 'number') return;
   stickX = x;
@@ -514,6 +528,13 @@ function init() {
   // Seed butterflies.
   for (let i = 0; i < BUTTERFLY_TARGET; i++) spawnButterfly();
   syncBanner();
+  // Mount the shared shell (retro theme, persistent overlay, banner, pause
+  // menu). No onRestart → defaults to window.location.reload().
+  gameShell = mountGameShell({
+    bannerEl,
+    bannerTextEl: bannerText,
+    homeUrl: '../../index.html',
+  });
   LISTENERS.forEach(([name, handler]) => window.addEventListener(name, handler));
   rafId = requestAnimationFrame(loop);
 }
@@ -522,6 +543,12 @@ function cleanup() {
   if (rafId != null) cancelAnimationFrame(rafId);
   rafId = null;
   LISTENERS.forEach(([name, handler]) => window.removeEventListener(name, handler));
+  try {
+    gameShell?.destroy();
+  } catch (error) {
+    // Fail soft — shell teardown must never break page unload.
+  }
+  gameShell = null;
 }
 
 window.addEventListener('pagehide', cleanup);

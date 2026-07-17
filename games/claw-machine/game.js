@@ -19,6 +19,7 @@ import {
   FACE_BOTTOM,
   LAYOUT_CHANGE,
 } from '../../shared/button-mapping.js';
+import { mountGameShell } from '../../shared/game-shell.js';
 import { moveClaw, grabAt, resetClaw } from './claw-logic.js';
 
 // ---------------------------------------------------------------------------
@@ -32,9 +33,10 @@ const GRID_ROWS = 4;
 const GRID_BOUNDS = { cols: GRID_COLS, rows: GRID_ROWS };
 
 // Internal backing resolution of the canvas (CSS scales it to fit).
-// Chosen for crisp rendering at typical sizes on hi-DPI displays via DPR.
-const CANVAS_CSS_WIDTH = 720;
-const CANVAS_CSS_HEIGHT = 620;
+// Defaults are overridden at runtime by resizeCanvas() based on the wrapper's
+// rendered size, so the whole game reflows to fit the viewport with zero scroll.
+let CANVAS_CSS_WIDTH = 720;
+let CANVAS_CSS_HEIGHT = 620;
 const TOP_BAR_HEIGHT = 64; // rail where the claw trolley lives, above the grid
 const TRAY_HEIGHT = 60; // collected-prizes tray strip below the grid
 
@@ -64,6 +66,7 @@ const GRAB_FREQ = 720;
 // ---------------------------------------------------------------------------
 
 const canvas = document.getElementById('claw-canvas');
+const clawCanvasWrap = document.querySelector('.claw-canvas-wrap');
 const ctx = canvas.getContext('2d');
 const bannerEl = document.querySelector('.gamepad-banner');
 const bannerText = document.getElementById('banner-text');
@@ -101,6 +104,18 @@ let rafId = null;
 
 function resizeCanvas() {
   if (!canvas || !ctx) return;
+  // Derive the CSS size from the wrapper's rendered size so the whole game
+  // (grid bounds, cell centers, trolley, drop target — all of which read the
+  // CANVAS_CSS_* constants) reflows to fit the viewport with zero scrolling.
+  if (clawCanvasWrap) {
+    const rect = clawCanvasWrap.getBoundingClientRect();
+    const ww = Math.floor(rect.width);
+    const wh = Math.floor(rect.height);
+    if (ww > 0 && wh > 0) {
+      CANVAS_CSS_WIDTH = ww;
+      CANVAS_CSS_HEIGHT = wh;
+    }
+  }
   const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
   const w = CANVAS_CSS_WIDTH;
   const h = CANVAS_CSS_HEIGHT;
@@ -509,6 +524,10 @@ function tick(now) {
 // ---------------------------------------------------------------------------
 
 function loop(now) {
+  if (gameShell.isPaused()) {
+    rafId = requestAnimationFrame(loop);
+    return;
+  }
   tick(now);
   draw(now);
   rafId = requestAnimationFrame(loop);
@@ -548,11 +567,11 @@ function syncBanner() {
 // Event handlers (bound so they can be removed on unload)
 // ---------------------------------------------------------------------------
 
-function onDpadUp() { handleMove('up'); }
-function onDpadDown() { handleMove('down'); }
-function onDpadLeft() { handleMove('left'); }
-function onDpadRight() { handleMove('right'); }
-function onFaceBottom() { handleDrop(); }
+function onDpadUp() { if (gameShell.isPaused()) return; handleMove('up'); }
+function onDpadDown() { if (gameShell.isPaused()) return; handleMove('down'); }
+function onDpadLeft() { if (gameShell.isPaused()) return; handleMove('left'); }
+function onDpadRight() { if (gameShell.isPaused()) return; handleMove('right'); }
+function onFaceBottom() { if (gameShell.isPaused()) return; handleDrop(); }
 function onLayoutChange() { syncGlyphLayout(); syncBanner(); }
 function onAvailability() { syncBanner(); }
 
@@ -579,6 +598,7 @@ function cleanup() {
     cancelAnimationFrame(rafId);
     rafId = null;
   }
+  window.removeEventListener('resize', resizeCanvas);
   LISTENERS.forEach(([name, handler]) => window.removeEventListener(name, handler));
 }
 
@@ -589,8 +609,20 @@ window.addEventListener('beforeunload', cleanup);
 // Boot
 // ---------------------------------------------------------------------------
 
-resizeCanvas();
-refillPrizes();
-buildGlyph();
-syncBanner();
-rafId = requestAnimationFrame(loop);
+// Mount the shared game shell (retro theme + persistent overlay + Start-button
+// pause menu + settings + banner). Game logic consults gameShell.isPaused().
+const gameShell = mountGameShell({
+  bannerEl,
+  bannerTextEl: bannerText,
+  homeUrl: '../../index.html',
+});
+
+window.addEventListener('resize', resizeCanvas);
+// Defer the first resize until after layout so the wrapper has a real size.
+requestAnimationFrame(() => {
+  resizeCanvas();
+  refillPrizes();
+  buildGlyph();
+  syncBanner();
+  rafId = requestAnimationFrame(loop);
+});

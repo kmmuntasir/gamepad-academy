@@ -5,21 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Submarine Sonar — Gamepad Academy</title>
     <link rel="stylesheet" href="../../shared/styles.css" />
+    <link rel="stylesheet" href="../../shared/retro.css" />
     <style>
       /* Game-local layout. Global look comes from shared/styles.css. */
       .submarine-page {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
         max-width: 1100px;
+        width: 100%;
         margin: 0 auto;
-        padding: var(--space-4);
+        padding: var(--space-2) var(--space-4);
+        gap: var(--space-2);
       }
       .submarine-page__title {
         text-align: center;
-        margin: var(--space-2) 0 var(--space-3);
+        margin: 0;
       }
       .submarine-stage {
         position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
         width: 100%;
-        aspect-ratio: 16 / 10;
+        max-height: min(72vh, calc((100vw - 4rem) * 10 / 16));
         border-radius: var(--radius-lg);
         overflow: hidden;
         box-shadow: var(--shadow-md);
@@ -31,31 +40,30 @@
         display: block;
       }
       .submarine-instructions {
-        margin-top: var(--space-4);
-        padding: var(--space-4);
+        margin: 0;
+        padding: var(--space-1) var(--space-3);
         background-color: var(--c-surface);
         border-radius: var(--radius-md);
-        color: var(--c-text);
-      }
-      .submarine-instructions h2 {
-        margin-bottom: var(--space-2);
-        font-size: var(--fs-lg);
-      }
-      .submarine-instructions ul {
-        list-style: disc;
-        padding-left: var(--space-5);
         color: var(--c-muted);
+        font-size: var(--fs-sm);
+        text-align: center;
       }
-      .submarine-instructions li {
-        margin-bottom: var(--space-1);
+      .submarine-instructions__compact {
+        display: inline-flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: var(--space-2);
       }
-      .submarine-instructions strong {
+      .submarine-instructions__compact strong {
         color: var(--c-text);
       }
       .headlight-readout {
-        margin-top: var(--space-2);
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-1);
         font-size: var(--fs-sm);
         color: var(--c-muted);
+        margin: 0;
       }
       .headlight-readout__swatch {
         display: inline-block;
@@ -63,12 +71,11 @@
         height: 0.9em;
         border-radius: 50%;
         vertical-align: middle;
-        margin-left: var(--space-1);
         border: 1px solid rgba(255, 255, 255, 0.35);
       }
       .discovery-hud {
-        margin: var(--space-3) 0 0;
-        padding: var(--space-2) var(--space-3);
+        margin: 0;
+        padding: var(--space-1) var(--space-3);
         background-color: var(--c-surface);
         border-radius: var(--radius-md);
         color: var(--c-text);
@@ -98,10 +105,10 @@
       aria-live="polite"
     >
       <span class="gamepad-banner__dot" aria-hidden="true"></span>
-      <span class="gamepad-banner__text">Waiting for a controller…</span>
+      <span class="gamepad-banner__text" id="banner-text">Waiting for a controller…</span>
     </div>
 
-    <main class="submarine-page">
+    <main class="page submarine-page">
       <h1 class="submarine-page__title">Submarine Sonar</h1>
 
       <div class="submarine-stage">
@@ -113,38 +120,24 @@
         <span id="discovered-total">16</span>
       </p>
 
-      <section class="submarine-instructions">
-        <h2>How to play</h2>
-        <ul>
-          <li>
-            <strong>Left stick</strong> — glide the submarine through the dark
-            water.
-          </li>
-          <li>
-            <strong id="ping-prompt">L3 (click left stick)</strong> — emit a
-            sonar ping that briefly lights up hidden fish and treasure.
-          </li>
-          <li>
-            <strong id="color-prompt">R3 (click right stick)</strong> — cycle
-            the submarine's headlight color.
-          </li>
-          <li>
-            <strong>Explore</strong> — every creature you reveal with a ping or
-            glide into gets discovered. Find them all!
-          </li>
-          <li>
-            Keyboard works too: <strong>arrows / WASD</strong> to move,
-            <strong>C</strong> to ping, <strong>V</strong> to change color.
-          </li>
-        </ul>
-        <p class="headlight-readout">
-          Headlight:
-          <span
-            class="headlight-readout__swatch"
-            id="headlight-swatch"
-            aria-hidden="true"
-          ></span>
-        </p>
+      <section class="submarine-instructions" aria-label="Controls">
+        <div class="submarine-instructions__compact">
+          <span><strong>L-stick</strong> move</span>
+          <span>·</span>
+          <span><strong id="ping-prompt">L3</strong> ping</span>
+          <span>·</span>
+          <span><strong id="color-prompt">R3</strong> headlight</span>
+          <span>·</span>
+          <span><strong>D-Pad</strong> nudge</span>
+          <span>·</span>
+          <span class="headlight-readout">
+            <span
+              class="headlight-readout__swatch"
+              id="headlight-swatch"
+              aria-hidden="true"
+            ></span>
+          </span>
+        </div>
       </section>
     </main>
 

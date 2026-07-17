@@ -23,6 +23,7 @@ import {
   playBlip,
 } from '../../shared/utils.js';
 import { nextLane, resolveObstacleHit, tryCollectCoin } from './lane-logic.js';
+import { mountGameShell } from '../../shared/game-shell.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -77,6 +78,14 @@ const chipLeftEl = document.getElementById('chip-left');
 const chipRightEl = document.getElementById('chip-right');
 
 const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
+
+// Game shell: retro theme + persistent overlay + Start-button pause menu.
+// No onRestart → defaults to reload on Restart.
+const gameShell = mountGameShell({
+  bannerEl,
+  bannerTextEl: bannerText,
+  homeUrl: '../../index.html',
+});
 
 // Backing store size (CSS pixels × DPR). Recomputed on resize.
 let viewW = 0;
@@ -386,6 +395,10 @@ function roundRect(c, x, y, w, h, r) {
 
 function loop(timestamp) {
   if (stopped) return;
+  if (gameShell.isPaused()) {
+    rafId = requestAnimationFrame(loop);
+    return;
+  }
   if (lastTimestamp === 0) lastTimestamp = timestamp;
   // Clamp dt so a tab-throttle/lag spike doesn't tunnel entities through the
   // player. 1/30s max step keeps movement sane.
@@ -446,8 +459,14 @@ function hop(direction) {
   startHopTo(target);
 }
 
-function onBumperLeft() { hop('left'); }
-function onBumperRight() { hop('right'); }
+function onBumperLeft() {
+  if (gameShell.isPaused()) return;
+  hop('left');
+}
+function onBumperRight() {
+  if (gameShell.isPaused()) return;
+  hop('right');
+}
 
 function onLayoutChange() {
   renderChips();

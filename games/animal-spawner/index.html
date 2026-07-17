@@ -5,18 +5,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Animal Spawner — Gamepad Academy</title>
     <link rel="stylesheet" href="../../shared/styles.css" />
+    <link rel="stylesheet" href="../../shared/retro.css" />
     <style>
       /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      /* No-scroll: body becomes a flex column — back-home-row takes its natural
+         height and the stage fills the rest of the viewport. #play-area then
+         flexes to absorb whatever remains, so nothing scrolls. */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .back-home-row {
+        flex: 0 0 auto;
+      }
       .spawn-stage {
         display: flex;
         flex-direction: column;
-        gap: var(--space-4);
+        gap: var(--space-3);
         align-items: stretch;
+        flex: 1 1 auto;
+        min-height: 0;
+        margin-top: auto;
+        margin-bottom: auto;
+      }
+      .spawn-stage > .page__title {
+        margin-bottom: 0;
+        flex: 0 0 auto;
+      }
+      .spawn-stage > .gamepad-banner {
+        margin-bottom: 0;
+        flex: 0 0 auto;
       }
       .spawn-instructions {
         text-align: center;
         color: var(--c-muted);
         font-size: var(--fs-md);
+        flex: 0 0 auto;
+        margin: 0;
       }
       .spawn-instructions strong {
         color: var(--c-primary);
@@ -26,6 +57,7 @@
         justify-content: center;
         align-items: center;
         gap: var(--space-3);
+        flex: 0 0 auto;
       }
       .prompt-row__label {
         font-size: var(--fs-md);
@@ -34,7 +66,8 @@
       #play-area {
         position: relative;
         width: 100%;
-        height: min(60vh, 540px);
+        flex: 1 1 auto;
+        min-height: 0;
         border-radius: var(--radius-lg);
         box-shadow: var(--shadow-md);
         overflow: hidden;
@@ -91,8 +124,7 @@
       </div>
 
       <p class="spawn-instructions">
-        Press the <strong>face buttons</strong> to spawn animals.
-        Use the <strong>D-Pad</strong> to change the background color.
+        <strong>Face buttons</strong> spawn animals · <strong>D-Pad</strong> changes the background
       </p>
 
       <div class="prompt-row">

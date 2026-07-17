@@ -5,13 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bumper Lane Runner — Gamepad Academy</title>
     <link rel="stylesheet" href="../../shared/styles.css" />
+    <link rel="stylesheet" href="../../shared/retro.css" />
     <style>
       /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      /* No-scroll: fit title + banner + instructions + prompt + canvas in 100vh. */
+      html, body {
+        height: 100%;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+      }
+      .back-home-row {
+        flex: 0 0 auto;
+      }
+      .page.runner-stage {
+        flex: 1 1 auto;
+        min-height: 0;
+        padding: var(--space-2) var(--space-3) var(--space-3);
+      }
+      .page__title {
+        margin-bottom: 0;
+        font-size: var(--fs-xl);
+      }
+      .gamepad-banner {
+        margin: 0;
+        padding: var(--space-2) var(--space-3);
+      }
       .runner-stage {
         display: flex;
         flex-direction: column;
-        gap: var(--space-4);
+        gap: var(--space-2);
         align-items: stretch;
+        min-height: 0;
       }
       .runner-header {
         display: flex;
@@ -21,15 +47,16 @@
         flex-wrap: wrap;
       }
       .runner-header__score {
-        font-size: var(--fs-xl);
+        font-size: var(--fs-lg);
         font-weight: 800;
         color: var(--c-accent);
       }
       .runner-instructions {
         text-align: center;
         color: var(--c-muted);
-        font-size: var(--fs-md);
+        font-size: var(--fs-sm);
         max-width: 50ch;
+        margin: 0;
       }
       .runner-instructions strong {
         color: var(--c-primary);
@@ -38,7 +65,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        gap: var(--space-4);
+        gap: var(--space-3);
         flex-wrap: wrap;
       }
       .prompt-row__pair {
@@ -50,7 +77,7 @@
         flex-direction: row-reverse;
       }
       .prompt-row__label {
-        font-size: var(--fs-md);
+        font-size: var(--fs-sm);
         color: var(--c-text);
       }
       /* Shoulder label chip (LB / R1 / L …) rendered per detected layout. */
@@ -58,20 +85,21 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 44px;
-        height: 44px;
-        padding: 0 var(--space-3);
+        min-width: 36px;
+        height: 32px;
+        padding: 0 var(--space-2);
         background-color: var(--c-surface-raised);
         color: var(--c-text);
         font-weight: 800;
-        font-size: var(--fs-lg);
+        font-size: var(--fs-md);
         border-radius: var(--radius-sm);
         border: 2px solid var(--c-muted);
       }
       .canvas-shell {
         position: relative;
         width: 100%;
-        height: min(70vh, 620px);
+        flex: 1 1 auto;
+        min-height: 0;
         border-radius: var(--radius-lg);
         overflow: hidden;
         box-shadow: var(--shadow-md);

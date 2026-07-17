@@ -7,6 +7,7 @@
 // `gamepad-*` events on `window` — never calls navigator.getGamepads().
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
+import { mountGameShell } from '../../shared/game-shell.js';
 import {
   LAYOUT_CHANGE,
   AVAILABILITY,
@@ -82,6 +83,18 @@ function resizeCanvas() {
 
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
+
+// ---------------------------------------------------------------------------
+// Game shell — retro theme, controller overlay, banner, and Start-button
+// pause menu (Resume / Restart / Back to Home / Settings). Loop + input are
+// gated on gameShell.isPaused() below. onRestart omitted → Restart reloads.
+// ---------------------------------------------------------------------------
+
+const gameShell = mountGameShell({
+  bannerEl,
+  bannerTextEl: bannerText,
+  homeUrl: '../../index.html',
+});
 
 // ---------------------------------------------------------------------------
 // State — kept separate from drawing.
@@ -391,6 +404,10 @@ function draw() {
 // ---------------------------------------------------------------------------
 
 function loop(timestamp) {
+  if (gameShell.isPaused()) {
+    rafId = requestAnimationFrame(loop);
+    return;
+  }
   if (!lastTimestamp) lastTimestamp = timestamp;
   let dt = (timestamp - lastTimestamp) / 1000;
   lastTimestamp = timestamp;

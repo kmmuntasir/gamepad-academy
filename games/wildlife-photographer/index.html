@@ -5,18 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Wildlife Photographer — Gamepad Academy</title>
     <link rel="stylesheet" href="../../shared/styles.css" />
+    <link rel="stylesheet" href="../../shared/retro.css" />
     <style>
       /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      /*
+        NO-SCROLL LAYOUT — fit title + banner + instructions + prompt + the
+        side-by-side canvas/scrapbook row inside 100vh with zero page scroll.
+        `.page` is flex:1 under body.game-page (set by the shared shell), and
+        `.photo-stage` is a column flex that stacks the chrome above a flex:1
+        `.photo-layout`. The layout is ALWAYS a 2-column grid row so the
+        scrapbook never stacks under the canvas; the scrapbook scrolls
+        internally if it overflows.
+      */
       .photo-stage {
         display: flex;
         flex-direction: column;
-        gap: var(--space-4);
+        gap: var(--space-3);
         align-items: stretch;
+        min-height: 0;
+        flex: 1 1 auto;
       }
       .photo-instructions {
         text-align: center;
         color: var(--c-muted);
         font-size: var(--fs-md);
+        margin: 0;
       }
       .photo-instructions strong {
         color: var(--c-primary);
@@ -24,17 +37,17 @@
       .photo-layout {
         display: grid;
         grid-template-columns: 1fr minmax(180px, 240px);
-        gap: var(--space-4);
+        grid-template-rows: minmax(0, 1fr);
+        gap: var(--space-3);
         align-items: stretch;
-      }
-      @media (max-width: 760px) {
-        .photo-layout {
-          grid-template-columns: 1fr;
-        }
+        flex: 1 1 auto;
+        min-height: 0;
       }
       #photo-canvas {
         width: 100%;
-        height: min(60vh, 540px);
+        height: 100%;
+        min-height: 0;
+        min-width: 0;
         border-radius: var(--radius-lg);
         box-shadow: var(--shadow-md);
         background-color: #9ed0f0;
@@ -45,9 +58,12 @@
         background-color: var(--c-surface);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: var(--radius-lg);
-        padding: var(--space-4);
+        padding: var(--space-3);
         box-shadow: var(--shadow-sm);
-        min-height: 200px;
+        min-height: 0;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
       }
       .scrapbook__title {
         font-size: var(--fs-lg);

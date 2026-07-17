@@ -7,6 +7,7 @@
 // All audio is ORIGINAL, synthesized in Web Audio — no samples, no files.
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
+import { mountGameShell } from '../../shared/game-shell.js';
 import { createFaceGlyph, setGlyphLayout, setGlyphActive } from '../../shared/glyph.js';
 import { getAudioContext, resumeAudio } from '../../shared/utils.js';
 import {
@@ -154,6 +155,9 @@ let schedulerTimer = null;
 let nextStep = 0;
 let nextStepTime = 0.0;
 let lastScheduledStepFor = null; // { track, step } to avoid double-triggering
+
+// Shared game shell — owns the pause menu, overlay, banner, and settings.
+let gameShell = null;
 
 // ---------------------------------------------------------------------------
 // Pad construction (DOM mixing desk)
@@ -525,14 +529,38 @@ function syncBanner() {
 // Event handlers (bound so they can be removed on unload)
 // ---------------------------------------------------------------------------
 
-function onFaceBottom() { holdPosition('bottom'); }
-function onFaceRight() { holdPosition('right'); }
-function onFaceLeft() { holdPosition('left'); }
-function onFaceTop() { holdPosition('top'); }
-function onFaceBottomUp() { releasePosition('bottom'); }
-function onFaceRightUp() { releasePosition('right'); }
-function onFaceLeftUp() { releasePosition('left'); }
-function onFaceTopUp() { releasePosition('top'); }
+function onFaceBottom() {
+  if (gameShell && gameShell.isPaused()) return;
+  holdPosition('bottom');
+}
+function onFaceRight() {
+  if (gameShell && gameShell.isPaused()) return;
+  holdPosition('right');
+}
+function onFaceLeft() {
+  if (gameShell && gameShell.isPaused()) return;
+  holdPosition('left');
+}
+function onFaceTop() {
+  if (gameShell && gameShell.isPaused()) return;
+  holdPosition('top');
+}
+function onFaceBottomUp() {
+  if (gameShell && gameShell.isPaused()) return;
+  releasePosition('bottom');
+}
+function onFaceRightUp() {
+  if (gameShell && gameShell.isPaused()) return;
+  releasePosition('right');
+}
+function onFaceLeftUp() {
+  if (gameShell && gameShell.isPaused()) return;
+  releasePosition('left');
+}
+function onFaceTopUp() {
+  if (gameShell && gameShell.isPaused()) return;
+  releasePosition('top');
+}
 
 function onLayoutChange() {
   if (glyphNode) {
@@ -546,6 +574,34 @@ function onLayoutChange() {
 function onAvailability() {
   syncBanner();
 }
+
+// ---------------------------------------------------------------------------
+// Pause / resume — bind the shared game-shell's lifecycle to the scheduler.
+// No rAF loop here: pausing stops the setInterval lookahead + closes audio;
+// resuming rebuilds the audio graph + restarts the interval. Any pads that
+// were held when pausing dropped out of the mix via the gate gains, so on
+// resume we re-seed the held-position lit state so the desk reflects reality.
+// ---------------------------------------------------------------------------
+
+function onPaused() {
+  stopScheduler();
+}
+
+function onResumed() {
+  // If the child is still holding pads, restart the scheduler so the mix
+  // comes back. If nothing is held, startScheduler is a no-op-safe idle
+  // until the next press (startScheduler returns early without an audio graph
+  // if ensureAudioGraph fails, but it succeeds here because we just rebuilt).
+  if (heldPositions.size > 0) {
+    startScheduler();
+    applyMix();
+  }
+}
+
+const PAUSE_LISTENERS = [
+  ['game-shell:paused', onPaused],
+  ['game-shell:resumed', onResumed],
+];
 
 const LISTENERS = [
   [FACE_BOTTOM, onFaceBottom],
@@ -561,15 +617,23 @@ const LISTENERS = [
 ];
 
 LISTENERS.forEach(([name, handler]) => window.addEventListener(name, handler));
+PAUSE_LISTENERS.forEach(([name, handler]) => window.addEventListener(name, handler));
 
 // ---------------------------------------------------------------------------
-// Teardown — stop scheduler, close audio, remove listeners.
+// Teardown — stop scheduler, close audio, remove listeners, destroy shell.
 // ---------------------------------------------------------------------------
 
 function cleanup() {
   LISTENERS.forEach(([name, handler]) => window.removeEventListener(name, handler));
+  PAUSE_LISTENERS.forEach(([name, handler]) => window.removeEventListener(name, handler));
   stopScheduler();
   heldPositions.clear();
+  try {
+    gameShell?.destroy();
+  } catch (error) {
+    // Fail soft — shell teardown must never break page unload.
+  }
+  gameShell = null;
 }
 
 window.addEventListener('pagehide', cleanup);
@@ -583,3 +647,16 @@ buildPads();
 syncBanner();
 renderStatus();
 setStatus('Hold a face button to start a track.');
+
+// Mount the shared game shell (retro theme, overlay, banner, pause menu).
+try {
+  gameShell = mountGameShell({
+    bannerEl,
+    bannerTextEl: bannerText,
+    homeUrl: '../../index.html',
+    onRestart: () => window.location.reload(),
+  });
+} catch (error) {
+  // Fail soft — game still runs without the shell.
+  gameShell = null;
+}

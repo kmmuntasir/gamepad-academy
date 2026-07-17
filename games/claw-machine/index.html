@@ -5,19 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Claw Machine — Gamepad Academy</title>
     <link rel="stylesheet" href="../../shared/styles.css" />
+    <link rel="stylesheet" href="../../shared/retro.css" />
     <style>
       /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
-      .claw-stage {
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        min-height: 100vh;
         display: flex;
         flex-direction: column;
-        gap: var(--space-4);
+        overflow: hidden;
+      }
+      .back-home-row {
+        flex: 0 0 auto;
+      }
+      .claw-stage {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
         align-items: stretch;
+        min-height: 0;
+        padding-bottom: var(--space-3);
       }
       .claw-instructions {
         text-align: center;
         color: var(--c-muted);
-        font-size: var(--fs-md);
-        max-width: 52ch;
+        font-size: var(--fs-sm);
+        max-width: 60ch;
         margin-inline: auto;
       }
       .claw-instructions strong {
@@ -31,11 +48,13 @@
         flex-wrap: wrap;
       }
       .prompt-row__label {
-        font-size: var(--fs-md);
+        font-size: var(--fs-sm);
         color: var(--c-text);
       }
       .claw-canvas-wrap {
         position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
         width: 100%;
         border-radius: var(--radius-lg);
         overflow: hidden;
@@ -45,7 +64,7 @@
       }
       #claw-canvas {
         width: 100%;
-        height: auto;
+        height: 100%;
         display: block;
         touch-action: none;
       }

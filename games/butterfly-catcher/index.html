@@ -5,25 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Butterfly Catcher — Gamepad Academy</title>
     <link rel="stylesheet" href="../../shared/styles.css" />
+    <link rel="stylesheet" href="../../shared/retro.css" />
     <style>
       /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
+      /* NO-SCROLL: stage fills the viewport as a column; canvas wrap flexes to
+         fill the remaining space (flex: 1 1 auto; min-height: 0) so the title,
+         banner, instructions, HUD, and canvas all fit inside 100vh. */
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .back-home-row {
+        flex: 0 0 auto;
+      }
       .bc-stage {
         display: flex;
         flex-direction: column;
-        gap: var(--space-4);
+        flex: 1 1 auto;
+        min-height: 0;
+        gap: var(--space-2);
         align-items: stretch;
+      }
+      .page__title {
+        flex: 0 0 auto;
+        margin: 0;
+      }
+      .gamepad-banner {
+        flex: 0 0 auto;
       }
       .bc-hud {
         display: flex;
         flex-wrap: wrap;
-        gap: var(--space-3) var(--space-5);
+        gap: var(--space-2) var(--space-4);
         align-items: center;
         justify-content: space-between;
+        flex: 0 0 auto;
       }
       .bc-instructions {
         text-align: center;
         color: var(--c-muted);
-        font-size: var(--fs-md);
+        font-size: var(--fs-sm);
+        margin: 0;
+        flex: 0 0 auto;
       }
       .bc-instructions strong {
         color: var(--c-primary);
@@ -67,7 +95,8 @@
       .bc-canvas-wrap {
         position: relative;
         width: 100%;
-        height: min(62vh, 560px);
+        flex: 1 1 auto;
+        min-height: 0;
         border-radius: var(--radius-lg);
         overflow: hidden;
         box-shadow: var(--shadow-md);

@@ -10,6 +10,7 @@
 // visual celebration.
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
+import { mountGameShell } from '../../shared/game-shell.js';
 import { createFaceGlyph, setGlyphLayout, setGlyphActive } from '../../shared/glyph.js';
 import { clamp, pick, playTone } from '../../shared/utils.js';
 import {
@@ -437,6 +438,10 @@ function draw() {
 // ---------------------------------------------------------------------------
 
 function loop(ts) {
+  if (gameShell.isPaused()) {
+    rafId = requestAnimationFrame(loop);
+    return;
+  }
   if (lastTs == null) lastTs = ts;
   // Clamp dt to avoid huge jumps after a tab is backgrounded (zero-stress).
   const dt = Math.min(0.05, (ts - lastTs) / 1000);
@@ -464,6 +469,8 @@ function stop() {
 // ---------------------------------------------------------------------------
 
 function onStickLeft(event) {
+  // Pause menu is open — drop live stick input.
+  if (gameShell.isPaused()) return;
   // Ignore stick input during celebration — new game resets cleanly.
   if (phase !== PHASE_PLAY) return;
   const detail = event.detail || {};
@@ -472,6 +479,8 @@ function onStickLeft(event) {
 }
 
 function onFacePress(position) {
+  // Pause menu is open — drop face input.
+  if (gameShell.isPaused()) return;
   // Input is ignored during celebration.
   if (phase !== PHASE_PLAY) return;
   // No hovered dot → no-op (never a penalty).
@@ -515,6 +524,8 @@ function onKeyUp(event) {
 }
 
 function recomputeStickFromKeys() {
+  // Pause menu is open — don't synthesize stick movement from held keys.
+  if (gameShell.isPaused()) return;
   // During celebration the cursor glides to a stop; ignore held keys.
   if (phase !== PHASE_PLAY) return;
   let x = 0;
@@ -593,5 +604,14 @@ function boot() {
   window.addEventListener('beforeunload', cleanup);
   start();
 }
+
+// Mount the shared game shell (retro theme, persistent overlay, Start-button
+// pause menu). onRestart reuses resetGame() for a real in-place restart.
+const gameShell = mountGameShell({
+  bannerEl: document.querySelector('.gamepad-banner'),
+  bannerTextEl: document.getElementById('banner-text'),
+  homeUrl: '../../index.html',
+  onRestart: () => resetGame(),
+});
 
 boot();

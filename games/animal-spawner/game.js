@@ -6,6 +6,7 @@
 // `gamepad-*` events on `window` — never calls navigator.getGamepads().
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
+import { mountGameShell } from '../../shared/game-shell.js';
 import { createFaceGlyph, setGlyphLayout } from '../../shared/glyph.js';
 import { playTone } from '../../shared/utils.js';
 import {
@@ -67,6 +68,19 @@ const bannerText = document.getElementById('banner-text');
 if (!playArea || !promptHost) {
   // Fail soft: nothing to mount onto. Don't throw to the child.
 }
+
+// ---------------------------------------------------------------------------
+// Game shell — retro theme, persistent controller overlay, Start-button pause
+// menu (Resume/Restart/Home/Settings), settings panel, and gamepad banner.
+// This game is fully event-driven (no rAF loop), so gameplay handlers below
+// guard on isPaused() to block spawning while the menu is open.
+// ---------------------------------------------------------------------------
+
+const gameShell = mountGameShell({
+  bannerEl,
+  bannerTextEl: bannerText,
+  homeUrl: '../../index.html',
+});
 
 // ---------------------------------------------------------------------------
 // State
@@ -176,12 +190,25 @@ syncBanner();
 // Event handlers (bound so they can be removed on unload)
 // ---------------------------------------------------------------------------
 
-function onFaceBottom() { spawnAnimal('bottom'); }
-function onFaceRight() { spawnAnimal('right'); }
-function onFaceLeft() { spawnAnimal('left'); }
-function onFaceTop() { spawnAnimal('top'); }
+function onFaceBottom() {
+  if (gameShell.isPaused()) return;
+  spawnAnimal('bottom');
+}
+function onFaceRight() {
+  if (gameShell.isPaused()) return;
+  spawnAnimal('right');
+}
+function onFaceLeft() {
+  if (gameShell.isPaused()) return;
+  spawnAnimal('left');
+}
+function onFaceTop() {
+  if (gameShell.isPaused()) return;
+  spawnAnimal('top');
+}
 
 function onDpad(direction) {
+  if (gameShell.isPaused()) return;
   backgroundIndex = nextBackgroundColor(direction, BACKGROUND_PALETTE, backgroundIndex);
   applyBackground();
 }
@@ -225,6 +252,11 @@ LISTENERS.forEach(([name, handler]) => window.addEventListener(name, handler));
 
 function cleanup() {
   LISTENERS.forEach(([name, handler]) => window.removeEventListener(name, handler));
+  try {
+    gameShell.destroy();
+  } catch (error) {
+    // Fail soft — teardown must never throw.
+  }
 }
 
 window.addEventListener('pagehide', cleanup);

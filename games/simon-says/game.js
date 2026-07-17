@@ -10,6 +10,7 @@
 // `gamepad-*` events on `window` — never calls navigator.getGamepads().
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
+import { mountGameShell } from '../../shared/game-shell.js';
 import { createFaceGlyph, setGlyphLayout, setGlyphActive } from '../../shared/glyph.js';
 import { playTone } from '../../shared/utils.js';
 import {
@@ -69,6 +70,11 @@ const levelEl = document.getElementById('level');
 const bannerEl = document.querySelector('.gamepad-banner');
 const bannerText = document.getElementById('banner-text');
 const statusEl = document.getElementById('status');
+
+// Shared game shell — retro theme, persistent overlay, Start-button pause
+// menu. `gameShell` is non-null after boot; face-button handlers gate on
+// isPaused() and the playback chain is paused/resumed via the shell events.
+let gameShell = null;
 
 // ---------------------------------------------------------------------------
 // State
@@ -265,10 +271,22 @@ function syncBanner() {
 // Event handlers (bound so they can be removed on unload)
 // ---------------------------------------------------------------------------
 
-function onFaceBottom() { handlePlayerPress('bottom'); }
-function onFaceRight() { handlePlayerPress('right'); }
-function onFaceLeft() { handlePlayerPress('left'); }
-function onFaceTop() { handlePlayerPress('top'); }
+function onFaceBottom() {
+  if (gameShell && gameShell.isPaused()) return;
+  handlePlayerPress('bottom');
+}
+function onFaceRight() {
+  if (gameShell && gameShell.isPaused()) return;
+  handlePlayerPress('right');
+}
+function onFaceLeft() {
+  if (gameShell && gameShell.isPaused()) return;
+  handlePlayerPress('left');
+}
+function onFaceTop() {
+  if (gameShell && gameShell.isPaused()) return;
+  handlePlayerPress('top');
+}
 
 function onLayoutChange() {
   if (glyphNode) setGlyphLayout(glyphNode, gamepadManager.getLayout());
@@ -279,6 +297,17 @@ function onAvailability() {
   syncBanner();
 }
 
+// Shell pause/resume — pause the playback chain cleanly and replay the
+// current round fresh on resume. cancelPending() clears any pending
+// timeouts and the playbackGeneration bump invalidates stale callbacks.
+function onShellPaused() {
+  cancelPending();
+  playbackGeneration += 1;
+}
+function onShellResumed() {
+  startNewRound();
+}
+
 const LISTENERS = [
   [FACE_BOTTOM, onFaceBottom],
   [FACE_RIGHT, onFaceRight],
@@ -286,6 +315,8 @@ const LISTENERS = [
   [FACE_TOP, onFaceTop],
   [LAYOUT_CHANGE, onLayoutChange],
   ['gamepad-availability', onAvailability],
+  ['game-shell:paused', onShellPaused],
+  ['game-shell:resumed', onShellResumed],
 ];
 
 LISTENERS.forEach(([name, handler]) => window.addEventListener(name, handler));
@@ -306,6 +337,11 @@ function cleanup() {
   // Invalidate any in-flight playback chain so a late timeout is a no-op.
   playbackGeneration += 1;
   cancelPending();
+  try {
+    gameShell?.destroy();
+  } catch (error) {
+    // Fail soft — teardown must never throw.
+  }
 }
 
 window.addEventListener('pagehide', cleanup);
@@ -317,6 +353,11 @@ window.addEventListener('beforeunload', cleanup);
 
 buildPads();
 syncBanner();
+gameShell = mountGameShell({
+  bannerEl,
+  bannerTextEl: bannerText,
+  homeUrl: '../../index.html',
+});
 progress = { length: 1, repeatsDone: 0 };
 sequence = buildSequence(1); // start with a single randomized step
 startNewRound();

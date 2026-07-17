@@ -13,6 +13,7 @@
 // the sub. The two event streams are not coupled here.
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
+import { mountGameShell } from '../../shared/game-shell.js';
 import { clamp, circleCollision, playBlip } from '../../shared/utils.js';
 import {
   pingRadius,
@@ -86,6 +87,10 @@ const discovered = new Set();
 let lastTimestamp = 0;
 let rafId = null;
 
+// Shared game shell (pause menu / overlay / banner). Module-level so both
+// loop() and stop() can reach it. Mounted in start().
+let gameShell = null;
+
 // ---------------------------------------------------------------------------
 // Setup — entities, initial sub position, canvas sizing
 // ---------------------------------------------------------------------------
@@ -147,6 +152,7 @@ function resizeCanvas() {
 // ---------------------------------------------------------------------------
 
 function onStickLeft(event) {
+  if (gameShell && gameShell.isPaused()) return;
   const { x, y } = event.detail || {};
   if (typeof x !== 'number' || typeof y !== 'number') return;
   // Target velocity from stick; deadzone zeroes noise. We do NOT set position
@@ -181,12 +187,14 @@ function applyDpad() {
 
 function makeDpadHandler(dir, pressed) {
   return () => {
+    if (gameShell && gameShell.isPaused()) return;
     heldDpad[dir] = pressed;
     applyDpad();
   };
 }
 
 function onStickClickLeft() {
+  if (gameShell && gameShell.isPaused()) return;
   // L3 → sonar ping. Gentle cooldown; never a fail state — spam is just ignored.
   const now = performance.now();
   if (now - lastPingStartedAt < PING_COOLDOWN_MS) return;
@@ -196,6 +204,7 @@ function onStickClickLeft() {
 }
 
 function onStickClickRight() {
+  if (gameShell && gameShell.isPaused()) return;
   // R3 → cycle headlight color (cosmetic only).
   headlightIndex = nextHeadlightColor(headlightIndex, HEADLIGHT_COLORS);
   updateHeadlightSwatch();
@@ -496,6 +505,10 @@ function withAlpha(hex, alpha) {
 // ---------------------------------------------------------------------------
 
 function loop(timestamp) {
+  if (gameShell && gameShell.isPaused()) {
+    rafId = requestAnimationFrame(loop);
+    return;
+  }
   if (!lastTimestamp) lastTimestamp = timestamp;
   // Clamp dt to avoid huge jumps after a tab is backgrounded (zero-stress).
   const dt = Math.min(0.05, (timestamp - lastTimestamp) / 1000);
@@ -568,6 +581,17 @@ function start() {
   updateHeadlightSwatch();
   updateDiscoveredHud();
 
+  // Mount the shared game shell (pause menu, controller overlay, banner).
+  try {
+    gameShell = mountGameShell({
+      bannerEl: document.querySelector('.gamepad-banner'),
+      bannerTextEl: document.getElementById('banner-text'),
+      homeUrl: '../../index.html',
+    });
+  } catch (error) {
+    gameShell = null;
+  }
+
   // Reflect whatever gamepad state the singleton already knows about.
   if (gamepadManager && gamepadManager.isActive && gamepadManager.isActive()) {
     banner.classList.add('is-connected');
@@ -583,6 +607,12 @@ function stop() {
     rafId = null;
   }
   removeListeners();
+  try {
+    gameShell?.destroy();
+  } catch (error) {
+    // Fail soft.
+  }
+  gameShell = null;
 }
 
 // Resize handling: keep the sub in bounds and re-scatter entities to fit.

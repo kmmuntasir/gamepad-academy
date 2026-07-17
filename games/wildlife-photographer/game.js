@@ -8,6 +8,7 @@
 // `gamepad-*` events on `window` — never calls navigator.getGamepads().
 
 import { gamepadManager } from '../../shared/gamepad-manager.js';
+import { mountGameShell } from '../../shared/game-shell.js';
 import { createFaceGlyph, setGlyphLayout, setGlyphActive } from '../../shared/glyph.js';
 import { clamp, playTone, resumeAudio } from '../../shared/utils.js';
 import {
@@ -159,6 +160,11 @@ let nextSnapAt = 0;
 let rafId = null;
 // Last timestamp (ms) for dt computation; null until first frame.
 let lastTs = null;
+
+// Shared game shell (retro theme + pause menu + banner). Loop and gameplay
+// handlers early-return while `gameShell.isPaused()` so pause fully halts
+// camera motion + snaps without tearing down the rAF loop.
+let gameShell = null;
 
 // One persistent glyph reused across frames (not strictly needed — we render
 // a textual layout-correct label instead — but kept consistent with siblings).
@@ -542,6 +548,14 @@ function draw() {
 // ---------------------------------------------------------------------------
 
 function loop(ts) {
+  // Pause gate: keep the rAF chain alive but skip all update/draw work while
+  // the shell's pause menu is open. Reset lastTs so dt doesn't accumulate a
+  // huge jump across the paused interval.
+  if (gameShell && gameShell.isPaused()) {
+    lastTs = ts;
+    rafId = requestAnimationFrame(loop);
+    return;
+  }
   if (lastTs == null) lastTs = ts;
   let dt = (ts - lastTs) / 1000;
   lastTs = ts;
@@ -570,18 +584,21 @@ function stop() {
 // ---------------------------------------------------------------------------
 
 function onStickRight(event) {
+  if (gameShell && gameShell.isPaused()) return;
   const detail = event.detail || {};
   stickX = Number(detail.x) || 0;
   stickY = Number(detail.y) || 0;
 }
 
 function onTriggerRight(event) {
+  if (gameShell && gameShell.isPaused()) return;
   const detail = (event && event.detail) || {};
   const v = Number(detail.value) || 0;
   if (v >= SNAP_TRIGGER_THRESHOLD) trySnap();
 }
 
 function onBumperRight() {
+  if (gameShell && gameShell.isPaused()) return;
   trySnap();
 }
 
@@ -606,6 +623,9 @@ function onFirstGesture() {
 
 // Keyboard fallback for the right stick: track held IJKL and synthesize an axis.
 function onKeyDown(event) {
+  // While paused, drop gameplay key synthesis so the camera doesn't move under
+  // the pause menu. Layout/availability are not driven from keys.
+  if (gameShell && gameShell.isPaused()) return;
   const dir = STICK_KEY_CODES[event.code];
   if (dir) {
     event.preventDefault();
@@ -682,6 +702,12 @@ function cleanup() {
   window.removeEventListener('keydown', onFirstGesture);
   window.removeEventListener('pagehide', cleanup);
   window.removeEventListener('beforeunload', cleanup);
+  try {
+    gameShell?.destroy();
+  } catch (error) {
+    // Fail soft: teardown must never surface an error.
+  }
+  gameShell = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -690,6 +716,18 @@ function cleanup() {
 
 function boot() {
   if (!canvas || !ctx) return; // fail soft: nothing to mount onto
+  // Mount the shared shell (retro theme + persistent overlay + Start-button
+  // pause menu + banner). No onRestart → shell defaults to location.reload().
+  try {
+    gameShell = mountGameShell({
+      bannerEl,
+      bannerTextEl: bannerText,
+      homeUrl: '../../index.html',
+    });
+  } catch (error) {
+    // Fail soft: the game still runs without the shell.
+    gameShell = null;
+  }
   resize();
   // Start the camera looking at the left end of the panorama, vertically centered.
   const b = currentBounds();

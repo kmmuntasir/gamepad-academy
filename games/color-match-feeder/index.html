@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Color-Match Feeder — Gamepad Academy</title>
     <link rel="stylesheet" href="../../shared/styles.css" />
+    <link rel="stylesheet" href="../../shared/retro.css" />
     <style>
       /* Game-local styles ONLY (shared/styles.css is not edited per task rules). */
       .feeder-stage {
@@ -36,7 +37,8 @@
       }
       #stage {
         width: 100%;
-        height: min(64vh, 560px);
+        flex: 1 1 auto;
+        min-height: 0;
         border-radius: var(--radius-lg);
         box-shadow: var(--shadow-md);
         border: 2px solid rgba(255, 255, 255, 0.15);
@@ -66,10 +68,9 @@
       </div>
 
       <p class="feeder-instructions">
-        Cookies drift toward the monster. Each one shows a
-        <strong>face-button prompt</strong> — press the matching button when
-        the cookie is inside the dashed ring to feed the monster. Misses just
-        float away; there's no game over.
+        Press the <strong>face button</strong> on each cookie when it's inside
+        the dashed ring to feed the monster. Misses just float away — no game
+        over.
       </p>
 
       <canvas id="stage" aria-label="Color-Match Feeder play area"></canvas>
