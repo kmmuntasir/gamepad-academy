@@ -28,6 +28,7 @@ import {
 import {
   FACE_BOTTOM,
   FACE_RIGHT,
+  START,
   DPAD_UP,
   DPAD_DOWN,
   DPAD_LEFT,
@@ -36,6 +37,7 @@ import {
   LAYOUT_CHANGE,
   AVAILABILITY,
   faceLabel,
+  menuLabel,
 } from './shared/button-mapping.js';
 import { playBlip } from './shared/utils.js';
 
@@ -84,7 +86,6 @@ const LAYOUT_OVERRIDE_LABELS = {
 const body = document.body;
 const grid = document.querySelector('.home-grid');
 const cardEls = Array.from(grid.querySelectorAll('.card'));
-const settingsTile = grid.querySelector('.card--settings');
 const banner = document.getElementById('gamepad-banner');
 const bannerText = document.getElementById('gamepad-banner-text');
 const overlayMount = document.querySelector('.controller-overlay');
@@ -163,13 +164,15 @@ function applyTheme() {
 function renderLegend() {
   const layout = effectiveLayout();
   // Move = D-Pad glyph (always "D-Pad" — positional arrows, layout-agnostic).
-  // Select = bottom face button. Back = right face button.
+  // Select = bottom face button. Settings = Start/Menu button. Back = right face button.
   const selectLabel = faceLabel(layout, 'bottom');
+  const settingsLabel = menuLabel(layout);
   const backLabel = faceLabel(layout, 'right');
   for (const el of moveKeyEls) {
     const key = el.dataset.legendKey;
     if (key === 'move') el.textContent = 'D-Pad';
     else if (key === 'select') el.textContent = selectLabel;
+    else if (key === 'settings') el.textContent = settingsLabel;
     else if (key === 'back') el.textContent = backLabel;
   }
 }
@@ -239,7 +242,6 @@ function onGridDpad(direction) {
 }
 
 function onStick(event) {
-  if (settingsOpen) return;
   const { x, y } = event.detail || {};
   if (!Number.isFinite(x) || !Number.isFinite(y)) return;
 
@@ -259,6 +261,14 @@ function onStick(event) {
   if (!fire) return;
   stickLastFireAt = now;
 
+  // Settings is a single vertical list — only up/down navigate there,
+  // giving the stick the same experience as the D-Pad.
+  if (settingsOpen) {
+    if (dir === 'up') moveSettingsRow(-1);
+    else if (dir === 'down') moveSettingsRow(1);
+    return;
+  }
+
   moveGrid(dir);
 }
 
@@ -268,10 +278,7 @@ function onSelect() {
     return;
   }
   const card = cardEls[currentIndex];
-  if (!card) return;
-  if (card === settingsTile) {
-    openSettings();
-  } else if (card.tagName === 'A') {
+  if (card && card.tagName === 'A') {
     maybeBlip();
     card.click();
   }
@@ -280,6 +287,12 @@ function onSelect() {
 function onBack() {
   if (!settingsOpen) return;
   closeSettings();
+}
+
+function onStart() {
+  // Start opens Settings (it does not toggle — Back closes). No-op while open
+  // so the keyboard Enter (which also maps to Start) can still activate rows.
+  if (!settingsOpen) openSettings();
 }
 
 // ---------------------------------------------------------------------------
@@ -410,8 +423,8 @@ function closeSettings() {
   settingsMount.hidden = true;
   settingsOpen = false;
   settingsMount.innerHTML = '';
-  // Restore focus to the settings tile.
-  if (settingsTile) settingsTile.focus();
+  // Restore focus to the last-focused game card.
+  focusCard(currentIndex);
   maybeBlip();
 }
 
@@ -605,11 +618,12 @@ function onSettingsKeydown(event) {
   }
 }
 
-function onSettingsTileKeydown(event) {
-  if (event.target === settingsTile && (event.code === 'Enter' || event.code === 'Space')) {
-    event.preventDefault();
-    openSettings();
-  }
+function onGridKeydown(event) {
+  // Enter maps to the Start button (opens Settings). Suppress the native link
+  // activation on grid cards so Enter opens Settings instead of following the
+  // card link. Games open via Select (face-bottom / KeyS). The settings panel
+  // lives outside the grid, so its controls still use native Enter/Space.
+  if (event.key === 'Enter') event.preventDefault();
 }
 
 // ---------------------------------------------------------------------------
@@ -630,6 +644,7 @@ function onSettingsChanged() {
 const LISTENERS = [
   [FACE_BOTTOM, onFaceBottom],
   [FACE_RIGHT, onFaceRight],
+  [START, onStart],
   [DPAD_UP, onDpadUp],
   [DPAD_DOWN, onDpadDown],
   [DPAD_LEFT, onDpadLeft],
@@ -644,7 +659,7 @@ function cleanup() {
   window.removeEventListener('focusin', onAnyFocus);
   window.removeEventListener('blur', onAnyBlur, true);
   window.removeEventListener('keydown', onSettingsKeydown);
-  settingsTile.removeEventListener('keydown', onSettingsTileKeydown);
+  grid.removeEventListener('keydown', onGridKeydown);
   stopOverlayLoop();
 }
 
@@ -694,7 +709,7 @@ function boot() {
   window.addEventListener('focusin', onAnyFocus);
   window.addEventListener('blur', onAnyBlur, true);
   window.addEventListener('keydown', onSettingsKeydown);
-  settingsTile.addEventListener('keydown', onSettingsTileKeydown);
+  grid.addEventListener('keydown', onGridKeydown);
 
   // Live re-apply on any setting change.
   subscribe(onSettingsChanged);

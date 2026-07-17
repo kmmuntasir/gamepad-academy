@@ -51,6 +51,11 @@ export const STICK_CLICK_RIGHT = 'gamepad-stick-click-right';
 export const STICK_CLICK_LEFT_UP = 'gamepad-stick-click-left-up';
 export const STICK_CLICK_RIGHT_UP = 'gamepad-stick-click-right-up';
 
+// Start/Menu button (center-right, index 9) — press + `…-up` release.
+// Used for global UI affordances (e.g. open Settings on the homepage), not gameplay.
+export const START = 'gamepad-start';
+export const START_UP = 'gamepad-start-up';
+
 // Auxiliary events dispatched by the manager (not gameplay inputs).
 export const LAYOUT_CHANGE = 'gamepad-layout-change';
 export const AVAILABILITY = 'gamepad-availability';
@@ -153,9 +158,20 @@ export function stickClickLabel(layout, side) {
   return table[side] != null ? table[side] : side;
 }
 
+const MENU_LABELS = {
+  xbox: 'Menu',
+  playstation: 'Options',
+  switch: 'Plus',
+};
+
+/** Return the Start/Menu button label (Menu / Options / Plus …). Defaults to 'Start'. */
+export function menuLabel(layout) {
+  return MENU_LABELS[layout] || 'Start';
+}
+
 // ---------------------------------------------------------------------------
 // Standard-gamepad index → event mapping (W3C "standard" mapping).
-// Indices 8, 9, 16 are intentionally not surfaced as gameplay events.
+// Indices 8 and 16 are intentionally not surfaced as events (index 9 = Start/Menu).
 // ---------------------------------------------------------------------------
 
 const BUTTON_INDEX_TO_EVENT = [
@@ -168,7 +184,7 @@ const BUTTON_INDEX_TO_EVENT = [
   TRIGGER_LEFT, // 6 (analog; detail.value)
   TRIGGER_RIGHT, // 7 (analog; detail.value)
   null, // 8  center-left (Back/View/Select) — not surfaced
-  null, // 9  center-right (Start/Menu/Options) — not surfaced
+  START, // 9  center-right (Start/Menu/Options/Plus)
   STICK_CLICK_LEFT, // 10 L3
   STICK_CLICK_RIGHT, // 11 R3
   DPAD_UP, // 12
@@ -223,4 +239,6 @@ export const KEY_TO_EVENT = {
   // Stick clicks.
   KeyC: [{ name: STICK_CLICK_LEFT }],
   KeyV: [{ name: STICK_CLICK_RIGHT }],
+  // Start/Menu button (opens Settings on the homepage).
+  Enter: [{ name: START }],
 };
